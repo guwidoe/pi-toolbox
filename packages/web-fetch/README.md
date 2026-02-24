@@ -6,6 +6,12 @@ Web fetch skill for pi.
 
 - `web-fetch`
 
+## Install
+
+```bash
+pi install npm:@guwidoe/pi-web-fetch
+```
+
 ## Publish
 
 ```bash

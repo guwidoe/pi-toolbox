@@ -6,6 +6,12 @@ Web search skill for pi.
 
 - `web-search`
 
+## Install
+
+```bash
+pi install npm:@guwidoe/pi-web-search
+```
+
 ## Publish
 
 ```bash
