@@ -1,0 +1,17 @@
+{
+  "name": "@guwidoe/pi-wsl-clipboard-image",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "pi extension: paste WSLg clipboard images into the prompt",
+  "license": "MIT",
+  "keywords": ["pi-package"],
+  "engines": {
+    "node": ">=20"
+  },
+  "pi": {
+    "extensions": ["./extensions"]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  }
+}

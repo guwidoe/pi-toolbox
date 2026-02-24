@@ -6,6 +6,7 @@ Monorepo for reusable pi packages.
 
 - `packages/web-search` — `web-search` skill (DuckDuckGo search + optional page content extraction)
 - `packages/web-fetch` — `web-fetch` skill (fetch URL content as markdown with search fallback)
+- `packages/wsl-clipboard-image` — WSLg clipboard image paste extension (`Alt+V`, `paste-image`)
 
 ## Local development
 
