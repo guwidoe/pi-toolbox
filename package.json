@@ -1,0 +1,10 @@
+{
+  "name": "pi-toolbox",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Monorepo for reusable pi skills and tooling",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ]
+}
