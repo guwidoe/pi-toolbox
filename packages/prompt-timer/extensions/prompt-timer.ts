@@ -88,7 +88,7 @@ export default function (pi: ExtensionAPI) {
 
   function renderRunningStatus(ctx: ExtensionContext): void {
     if (uiMode !== "status" || !startTime) return;
-    ctx.ui.setStatus(STATUS_KEY, `⏱ ${formatDuration(Date.now() - startTime)}`);
+    ctx.ui.setStatus(STATUS_KEY, `⏱ ${formatDuration(Date.now() - startTime)} (${TOGGLE_SHORTCUT})`);
   }
 
   function renderFinalStatus(ctx: ExtensionContext): void {
@@ -97,7 +97,7 @@ export default function (pi: ExtensionAPI) {
       clearStatus(ctx);
       return;
     }
-    ctx.ui.setStatus(STATUS_KEY, `⏱ last ${formatDuration(lastDurationMs)}`);
+    ctx.ui.setStatus(STATUS_KEY, `⏱ last ${formatDuration(lastDurationMs)} (${TOGGLE_SHORTCUT})`);
   }
 
   function closeOverlay(): void {
@@ -180,13 +180,31 @@ export default function (pi: ExtensionAPI) {
 
   function refreshUi(ctx: ExtensionContext): void {
     if (uiMode === "overlay") {
+      if (!uiVisible) {
+        closeOverlay();
+        clearStatus(ctx);
+        return;
+      }
+
+      if (!startTime) {
+        closeOverlay();
+        if (lastDurationMs != null) {
+          ctx.ui.setStatus(STATUS_KEY, `⏱ last ${formatDuration(lastDurationMs)} (${TOGGLE_SHORTCUT})`);
+        } else {
+          clearStatus(ctx);
+        }
+        return;
+      }
+
+      clearStatus(ctx);
       ensureOverlay(ctx);
-      if (overlayHandle) overlayHandle.setHidden(!uiVisible);
-      if (uiVisible) requestOverlayRender();
+      if (overlayHandle) overlayHandle.setHidden(false);
+      requestOverlayRender();
       return;
     }
 
     if (uiMode === "status") {
+      closeOverlay();
       if (!uiVisible) {
         clearStatus(ctx);
         return;

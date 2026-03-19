@@ -6,7 +6,7 @@ Prompt timer extension for pi.
 
 - Persists per-run timing as custom session entries (`custom`, not `custom_message`)
 - Does not inject context/chat messages into the model conversation
-- Default UI is a **non-capturing overlay** (top-right, offset downward to avoid pinned prompt UI), so it does not take over working message/widget
+- Default UI is a **non-capturing overlay** (top-right, offset downward to avoid pinned prompt UI) while the agent is running, then falls back to a minimal footer status when idle
 - Optional footer-status mode if you prefer a text-only indicator
 - `/prompt-timer-stats` command for quick branch-level totals
 
