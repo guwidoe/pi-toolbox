@@ -3,6 +3,7 @@ import type { Component, OverlayHandle, TUI } from "@mariozechner/pi-tui";
 
 const STATUS_KEY = "prompt-timer";
 const ENTRY_TYPE = "prompt-timer";
+const TOGGLE_SHORTCUT = "alt+shift+t";
 
 type UiMode = "off" | "status" | "overlay";
 
@@ -68,6 +69,7 @@ export default function (pi: ExtensionAPI) {
 
   let uiMode: UiMode = "overlay";
   let persistEnabled = true;
+  let uiVisible = true;
 
   let overlayHandle: OverlayHandle | null = null;
   let overlayTui: TUI | null = null;
@@ -128,8 +130,9 @@ export default function (pi: ExtensionAPI) {
               const line1 = running ? `⏱ ${formatDuration(nowMs)} running` : "⏱ idle";
               const line2 = lastDurationMs != null ? `last ${formatDuration(lastDurationMs)}` : "last —";
               const line3 = running ? "working…" : "ready";
+              const line4 = TOGGLE_SHORTCUT;
 
-              return [fit(line1, width), fit(line2, width), fit(line3, width)];
+              return [fit(line1, width), fit(line2, width), fit(line3, width), fit(line4, width)];
             },
             invalidate(): void {},
             dispose(): void {
@@ -145,6 +148,7 @@ export default function (pi: ExtensionAPI) {
           overlay: true,
           overlayOptions: {
             anchor: "top-right",
+            offsetY: 3,
             width: 20,
             margin: { top: 1, right: 1 },
             nonCapturing: true,
@@ -152,6 +156,7 @@ export default function (pi: ExtensionAPI) {
           },
           onHandle: (handle) => {
             overlayHandle = handle;
+            if (!uiVisible) handle.setHidden(true);
             overlayOpening = false;
           },
         },
@@ -176,11 +181,16 @@ export default function (pi: ExtensionAPI) {
   function refreshUi(ctx: ExtensionContext): void {
     if (uiMode === "overlay") {
       ensureOverlay(ctx);
-      requestOverlayRender();
+      if (overlayHandle) overlayHandle.setHidden(!uiVisible);
+      if (uiVisible) requestOverlayRender();
       return;
     }
 
     if (uiMode === "status") {
+      if (!uiVisible) {
+        clearStatus(ctx);
+        return;
+      }
       if (startTime) renderRunningStatus(ctx);
       else renderFinalStatus(ctx);
       return;
@@ -189,6 +199,27 @@ export default function (pi: ExtensionAPI) {
     clearStatus(ctx);
     closeOverlay();
   }
+
+  function toggleUi(ctx: ExtensionContext): void {
+    uiVisible = !uiVisible;
+    refreshUi(ctx);
+    requestOverlayRender();
+    ctx.ui.notify(`Prompt timer ${uiVisible ? "shown" : "hidden"}. (${TOGGLE_SHORTCUT})`, "info");
+  }
+
+  pi.registerShortcut(TOGGLE_SHORTCUT, {
+    description: "Toggle prompt timer UI",
+    handler: async (ctx) => {
+      toggleUi(ctx);
+    },
+  });
+
+  pi.registerCommand("prompt-timer-toggle", {
+    description: "Toggle prompt timer UI visibility",
+    handler: async (_args, ctx) => {
+      toggleUi(ctx);
+    },
+  });
 
   pi.registerCommand("prompt-timer-stats", {
     description: "Show aggregate prompt timer stats for this branch",
@@ -214,6 +245,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     const uiEnabled = pi.getFlag("prompt-timer-ui") !== false;
     uiMode = parseUiMode(pi.getFlag("prompt-timer-ui-mode"), uiEnabled);
+    uiVisible = uiEnabled;
     persistEnabled = pi.getFlag("prompt-timer-persist") !== false;
 
     const entries = getBranchTimerEntries(ctx);
@@ -232,6 +264,7 @@ export default function (pi: ExtensionAPI) {
     refreshUi(ctx);
 
     timer = setInterval(() => {
+      if (!uiVisible) return;
       if (uiMode === "overlay") {
         requestOverlayRender();
       } else if (uiMode === "status") {
