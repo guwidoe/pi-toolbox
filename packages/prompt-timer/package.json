@@ -1,0 +1,17 @@
+{
+  "name": "@guwidoe/pi-prompt-timer",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "pi extension: persistent per-turn timing with optional unintrusive footer UI",
+  "license": "MIT",
+  "keywords": ["pi-package"],
+  "engines": {
+    "node": ">=20"
+  },
+  "pi": {
+    "extensions": ["./extensions"]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  }
+}
