@@ -10,6 +10,7 @@ Monorepo for reusable pi packages.
 - `packages/prompt-timer` — persistent prompt timing extension (non-capturing overlay UI, no context message injection)
 - `packages/openai-image` — OpenAI image-generation extension (`/image`, `openai_image` tool)
 - `packages/vibe-skills` — personal workflow skills extracted from `vibe-setup`
+- `packages/frontend-design` — OpenAI-based frontend design skill (`frontend-design-openai`)
 
 ## Install published plugins
 
@@ -22,6 +23,7 @@ pi install npm:@guwidoe/pi-clipboard-image
 pi install npm:@guwidoe/pi-prompt-timer
 pi install npm:@guwidoe/pi-openai-image
 pi install npm:@guwidoe/pi-vibe-skills
+pi install npm:@guwidoe/pi-frontend-design
 ```
 
 ## Local development

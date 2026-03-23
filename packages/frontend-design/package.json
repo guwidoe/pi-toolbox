@@ -1,0 +1,14 @@
+{
+  "name": "@guwidoe/pi-frontend-design",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "pi skill: OpenAI-based frontend design guidance for high-quality UI work",
+  "license": "Apache-2.0",
+  "keywords": ["pi-package"],
+  "engines": {
+    "node": ">=20"
+  },
+  "pi": {
+    "skills": ["./skills"]
+  }
+}
