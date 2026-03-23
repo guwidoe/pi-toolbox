@@ -4,7 +4,7 @@ OpenAI-based frontend design skill package for pi.
 
 ## Included skill
 
-- `frontend-design-openai`
+- `frontend-design` (overrides the generic skill name)
 
 ## Install
 

@@ -1,15 +1,26 @@
 ---
-name: frontend-design-openai
-description: Use when the task asks for a visually strong landing page, website, app, prototype, demo, or game UI. Enforces restrained composition, image-led hierarchy, cohesive content structure, and tasteful motion while avoiding generic cards, weak branding, and UI clutter.
+name: frontend-design
+description: Use when the task asks for a visually strong landing page, website, app, prototype, demo, or game UI. Enforces restrained composition, image-led hierarchy, cohesive content structure, strong implementation quality, and tasteful motion while avoiding generic cards, weak branding, and UI clutter.
 ---
 
-# Frontend Design (OpenAI-based)
+# Frontend Design (OpenAI-based + implementation guardrails)
 
-Adapted from OpenAI's `frontend-skill` and tuned for pi workflows.
+Adapted from OpenAI's `frontend-skill` and tuned with stronger implementation guardrails.
 
 Use this skill when quality depends on art direction, hierarchy, restraint, imagery, and motion rather than component count.
 
 Goal: ship interfaces that feel deliberate, premium, and current. Default toward award-level composition: one big idea, strong imagery, sparse copy, rigorous spacing, and a small number of memorable motions.
+
+## Inputs to Gather First
+
+Before coding, identify:
+
+- purpose and audience
+- brand/tone references
+- technical constraints (framework, libraries, accessibility, performance)
+- content constraints (required copy, assets, data, features)
+
+If unclear, ask **2–4 targeted questions**. If the user wants immediate output, proceed with best-guess assumptions and state them briefly.
 
 ## Working Model
 
@@ -20,6 +31,16 @@ Before building, write three things:
 - interaction thesis: 2-3 motion ideas that change the feel of the page
 
 Each section gets one job, one dominant visual idea, and one primary takeaway or action.
+
+## Implementation Baseline (Required)
+
+- Deliver **real, runnable code**, not just design commentary.
+- Use semantic HTML and accessible structure (headings, labels, landmarks where appropriate).
+- Ensure keyboard usability and visible focus states.
+- Respect `prefers-reduced-motion` for non-essential animation.
+- Build responsive layouts with fluid sizing and sensible breakpoints.
+- Use tokenized styling (CSS variables for color, spacing, radius, shadows, typography).
+- Prefer Grid/Flex patterns; avoid fragile absolute-position-heavy layouts.
 
 ## Beautiful Defaults
 
@@ -175,6 +196,13 @@ Motion rules:
 - Carousel with no narrative purpose
 - App UI made of stacked cards instead of layout
 
+## Deliverables
+
+- Provide full code with file names or component boundaries.
+- Keep styling configurable via CSS variables/tokens.
+- If assets are needed, prefer inline SVG, generated patterns, or clearly referenced placeholders.
+- Keep implementation production-oriented: no dead sections, no decorative-only scaffolding.
+
 ## Litmus Checks
 
 - Is the brand or product unmistakable in the first screen?
@@ -183,4 +211,5 @@ Motion rules:
 - Does each section have one job?
 - Are cards actually necessary?
 - Does motion improve hierarchy or atmosphere?
+- Is the UI accessible and responsive as delivered?
 - Would the design still feel premium if all decorative shadows were removed?
