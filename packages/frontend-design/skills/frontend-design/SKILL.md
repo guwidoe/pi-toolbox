@@ -121,6 +121,17 @@ Imagery must do narrative work.
 
 The first viewport needs a real visual anchor. Decorative texture is not enough.
 
+## AI Asset Generation (openai_image)
+
+When required visual assets are missing, generate them with the `openai_image` tool instead of shipping placeholder blocks.
+
+- Default to production-quality generations suitable for direct design review.
+- Generate a small number of strong candidates (typically 1-3) for each critical slot (hero, supporting visual, key section image).
+- Prefer fewer high-quality options over many weak variants.
+- Save assets into stable project paths (for example `public/generated/` or framework equivalent) and wire them directly into the implementation.
+- Prompt with explicit art direction: subject, composition, mood, lighting, palette, and aspect ratio.
+- Avoid embedded text in generated images unless the brief explicitly requires in-image typography.
+
 ## Copy
 
 - Write in product language, not design commentary.
