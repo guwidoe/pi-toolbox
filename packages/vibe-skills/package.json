@@ -1,0 +1,14 @@
+{
+  "name": "@guwidoe/pi-vibe-skills",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "pi skills: personal workflow skills extracted from vibe-setup",
+  "license": "MIT",
+  "keywords": ["pi-package"],
+  "engines": {
+    "node": ">=20"
+  },
+  "pi": {
+    "skills": ["./skills"]
+  }
+}

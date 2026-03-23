@@ -8,6 +8,8 @@ Monorepo for reusable pi packages.
 - `packages/web-fetch` — `web-fetch` skill (fetch URL content as markdown with search fallback)
 - `packages/clipboard-image` — cross-platform clipboard image paste extension (`Alt+V`, `paste-image`)
 - `packages/prompt-timer` — persistent prompt timing extension (non-capturing overlay UI, no context message injection)
+- `packages/openai-image` — OpenAI image-generation extension (`/image`, `openai_image` tool)
+- `packages/vibe-skills` — personal workflow skills extracted from `vibe-setup`
 
 ## Install published plugins
 
@@ -18,6 +20,8 @@ pi install npm:@guwidoe/pi-web-search
 pi install npm:@guwidoe/pi-web-fetch
 pi install npm:@guwidoe/pi-clipboard-image
 pi install npm:@guwidoe/pi-prompt-timer
+pi install npm:@guwidoe/pi-openai-image
+pi install npm:@guwidoe/pi-vibe-skills
 ```
 
 ## Local development

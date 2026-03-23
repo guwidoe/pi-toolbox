@@ -1,0 +1,20 @@
+{
+  "name": "@guwidoe/pi-openai-image",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "pi extension: generate images with OpenAI and attach them to prompts",
+  "license": "MIT",
+  "keywords": ["pi-package"],
+  "engines": {
+    "node": ">=20"
+  },
+  "pi": {
+    "extensions": ["./extensions"]
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.39"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  }
+}
