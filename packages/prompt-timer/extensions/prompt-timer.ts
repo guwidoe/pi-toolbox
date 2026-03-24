@@ -2,6 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-age
 import type { Component, OverlayHandle, TUI } from "@mariozechner/pi-tui";
 
 const STATUS_KEY = "prompt-timer";
+const OVERLAY_WIDGET_KEY = "prompt-timer-overlay-host";
 const ENTRY_TYPE = "prompt-timer";
 const TOGGLE_SHORTCUT = "alt+shift+t";
 
@@ -73,7 +74,7 @@ export default function (pi: ExtensionAPI) {
 
   let overlayHandle: OverlayHandle | null = null;
   let overlayTui: TUI | null = null;
-  let overlayOpening = false;
+  let overlayHostMounted = false;
 
   function clearIntervalTimer(): void {
     if (timer) {
@@ -100,72 +101,73 @@ export default function (pi: ExtensionAPI) {
     ctx.ui.setStatus(STATUS_KEY, `⏱ last ${formatDuration(lastDurationMs)} (${TOGGLE_SHORTCUT})`);
   }
 
-  function closeOverlay(): void {
-    if (overlayHandle) {
-      overlayHandle.hide();
-      overlayHandle = null;
-    }
-    overlayTui = null;
-    overlayOpening = false;
+  function shouldShowOverlay(): boolean {
+    return uiMode === "overlay" && uiVisible && startTime != null;
   }
 
   function requestOverlayRender(): void {
     overlayTui?.requestRender();
   }
 
-  function ensureOverlay(ctx: ExtensionContext): void {
-    if (!ctx.hasUI || uiMode !== "overlay" || overlayHandle || overlayOpening) return;
+  function syncOverlayVisibility(): void {
+    if (!overlayHandle) return;
+    overlayHandle.setHidden(!shouldShowOverlay());
+  }
 
-    overlayOpening = true;
+  function closeOverlayHost(ctx: ExtensionContext): void {
+    ctx.ui.setWidget(OVERLAY_WIDGET_KEY, undefined);
+    overlayHandle = null;
+    overlayTui = null;
+    overlayHostMounted = false;
+  }
 
-    void ctx.ui
-      .custom<void>(
-        (tui, _theme, _keybindings, _done) => {
-          overlayTui = tui;
+  function ensureOverlayHost(ctx: ExtensionContext): void {
+    if (!ctx.hasUI || uiMode !== "overlay" || overlayHostMounted) return;
 
-          const component: Component & { dispose?(): void } = {
-            render(width: number): string[] {
-              const running = startTime != null;
-              const nowMs = running && startTime != null ? Date.now() - startTime : 0;
-              const line1 = running ? `⏱ ${formatDuration(nowMs)} running` : "⏱ idle";
-              const line2 = lastDurationMs != null ? `last ${formatDuration(lastDurationMs)}` : "last —";
-              const line3 = running ? "working…" : "ready";
-              const line4 = TOGGLE_SHORTCUT;
+    overlayHostMounted = true;
 
-              return [fit(line1, width), fit(line2, width), fit(line3, width), fit(line4, width)];
-            },
-            invalidate(): void {},
-            dispose(): void {
-              overlayTui = null;
-              overlayHandle = null;
-              overlayOpening = false;
-            },
-          };
+    ctx.ui.setWidget(OVERLAY_WIDGET_KEY, (tui, _theme) => {
+      overlayTui = tui;
 
-          return component;
+      const overlayComponent: Component = {
+        render(width: number): string[] {
+          const running = startTime != null;
+          const nowMs = running && startTime != null ? Date.now() - startTime : 0;
+          const line1 = running ? `⏱ ${formatDuration(nowMs)} running` : "⏱ idle";
+          const line2 = lastDurationMs != null ? `last ${formatDuration(lastDurationMs)}` : "last —";
+          const line3 = running ? "working…" : "ready";
+          const line4 = TOGGLE_SHORTCUT;
+
+          return [fit(line1, width), fit(line2, width), fit(line3, width), fit(line4, width)];
         },
-        {
-          overlay: true,
-          overlayOptions: {
-            anchor: "top-right",
-            offsetY: 3,
-            width: 20,
-            margin: { top: 1, right: 1 },
-            nonCapturing: true,
-            visible: (termWidth) => termWidth >= 70,
-          },
-          onHandle: (handle) => {
-            overlayHandle = handle;
-            if (!uiVisible) handle.setHidden(true);
-            overlayOpening = false;
-          },
-        },
-      )
-      .catch(() => {
-        overlayTui = null;
-        overlayHandle = null;
-        overlayOpening = false;
+        invalidate(): void {},
+      };
+
+      const handle = tui.showOverlay(overlayComponent, {
+        anchor: "top-right",
+        offsetY: 3,
+        width: 20,
+        margin: { top: 1, right: 1 },
+        nonCapturing: true,
+        visible: (termWidth) => termWidth >= 70,
       });
+
+      overlayHandle = handle;
+      syncOverlayVisibility();
+
+      return {
+        render(): string[] {
+          return [];
+        },
+        invalidate(): void {},
+        dispose(): void {
+          if (overlayHandle === handle) overlayHandle = null;
+          if (overlayTui === tui) overlayTui = null;
+          overlayHostMounted = false;
+          handle.hide();
+        },
+      };
+    });
   }
 
   function persistTurn(startedAtMs: number, endedAtMs: number): void {
@@ -181,13 +183,13 @@ export default function (pi: ExtensionAPI) {
   function refreshUi(ctx: ExtensionContext): void {
     if (uiMode === "overlay") {
       if (!uiVisible) {
-        closeOverlay();
+        syncOverlayVisibility();
         clearStatus(ctx);
         return;
       }
 
       if (!startTime) {
-        closeOverlay();
+        syncOverlayVisibility();
         if (lastDurationMs != null) {
           ctx.ui.setStatus(STATUS_KEY, `⏱ last ${formatDuration(lastDurationMs)} (${TOGGLE_SHORTCUT})`);
         } else {
@@ -197,14 +199,14 @@ export default function (pi: ExtensionAPI) {
       }
 
       clearStatus(ctx);
-      ensureOverlay(ctx);
-      if (overlayHandle) overlayHandle.setHidden(false);
+      ensureOverlayHost(ctx);
+      syncOverlayVisibility();
       requestOverlayRender();
       return;
     }
 
     if (uiMode === "status") {
-      closeOverlay();
+      if (overlayHostMounted) closeOverlayHost(ctx);
       if (!uiVisible) {
         clearStatus(ctx);
         return;
@@ -215,7 +217,7 @@ export default function (pi: ExtensionAPI) {
     }
 
     clearStatus(ctx);
-    closeOverlay();
+    if (overlayHostMounted) closeOverlayHost(ctx);
   }
 
   function toggleUi(ctx: ExtensionContext): void {
@@ -269,7 +271,7 @@ export default function (pi: ExtensionAPI) {
     const entries = getBranchTimerEntries(ctx);
     lastDurationMs = entries.length > 0 ? entries[entries.length - 1]!.durationMs : null;
 
-    if (uiMode !== "overlay") closeOverlay();
+    if (uiMode !== "overlay" && overlayHostMounted) closeOverlayHost(ctx);
     if (uiMode !== "status") clearStatus(ctx);
 
     refreshUi(ctx);
@@ -312,7 +314,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_shutdown", async (_event, ctx) => {
     clearIntervalTimer();
     clearStatus(ctx);
-    closeOverlay();
+    if (overlayHostMounted) closeOverlayHost(ctx);
     startTime = null;
   });
 }
