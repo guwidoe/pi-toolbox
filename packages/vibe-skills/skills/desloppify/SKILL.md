@@ -25,6 +25,17 @@ Do **not** jump straight from scan to endless fixing. Pause at the defined check
 - Ask before excluding questionable directories from scanning.
 - Report back at the required checkpoints before proceeding.
 
+## Workflow Extension Integration
+
+If the `desloppify_workflow` tool is available, use it as the authoritative workflow state tracker.
+
+- After collecting the user's initial answers, call it to **start** the run with the chosen mode, target path, and reviewer settings.
+- Update the stored **phase** whenever you move into a new major phase.
+- Keep reviewer model/thinking settings current there rather than relying on memory.
+- When the run is genuinely finished, call it to **complete** the run so per-turn workflow injections stop.
+
+This tool exists to keep the workflow fresh across compactions and long sessions.
+
 ## What desloppify is doing
 
 Desloppify is not just a scanner. It is a workflow:
@@ -57,6 +68,8 @@ Be explicit about the meaning of the two modes:
 
 - **`objective-only scan`** means run only the mechanical/objective scan path.
 - **`full workflow`** means start with `desloppify scan --profile full`, then continue into the separate subjective review phase. In desloppify, the scan command itself does **not** run reviewer agents inline; it queues that work for a later `desloppify review ...` step.
+
+Once these answers are known, if `desloppify_workflow` is available, start the tracked run immediately before doing the scan/setup work.
 
 ## Setup and Installation
 
@@ -350,6 +363,8 @@ Examples:
 - `test(treemap): add coverage for interaction edge cases`
 
 If a fix spans multiple meaningful sub-slices, prefer multiple smaller commits over one large mixed commit.
+
+If the workflow extension is available, keep the stored phase accurate during execution and mark the run complete when the full desloppify pass is done.
 
 Use `desloppify backlog` only when you need broader context beyond the current execution queue.
 
