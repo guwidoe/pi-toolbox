@@ -118,13 +118,13 @@ export default function (pi: ExtensionAPI) {
 
     timer = setTimeout(() => {
       timer = null;
-      if (!startTime || !uiVisible) return;
+      if (!startTime) return;
 
-      if (uiMode === "overlay") {
+      if (uiVisible && uiMode === "overlay") {
         if (overlayHandle && !overlayHandle.isHidden()) {
           requestOverlayRender();
         }
-      } else if (uiMode === "status") {
+      } else if (uiVisible && uiMode === "status") {
         renderRunningStatus(ctx);
       }
 
@@ -246,6 +246,7 @@ export default function (pi: ExtensionAPI) {
   function toggleUi(ctx: ExtensionContext): void {
     uiVisible = !uiVisible;
     refreshUi(ctx);
+    if (startTime) scheduleRenderTick(ctx);
     requestOverlayRender();
     ctx.ui.notify(`Prompt timer ${uiVisible ? "shown" : "hidden"}. (${TOGGLE_SHORTCUT})`, "info");
   }
