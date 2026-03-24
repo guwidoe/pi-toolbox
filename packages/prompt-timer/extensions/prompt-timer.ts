@@ -66,7 +66,7 @@ export default function (pi: ExtensionAPI) {
 
   let startTime: number | null = null;
   let lastDurationMs: number | null = null;
-  let timer: ReturnType<typeof setInterval> | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
 
   let uiMode: UiMode = "overlay";
   let persistEnabled = true;
@@ -76,9 +76,9 @@ export default function (pi: ExtensionAPI) {
   let overlayTui: TUI | null = null;
   let overlayHostMounted = false;
 
-  function clearIntervalTimer(): void {
+  function clearRenderTimer(): void {
     if (timer) {
-      clearInterval(timer);
+      clearTimeout(timer);
       timer = null;
     }
   }
@@ -107,6 +107,29 @@ export default function (pi: ExtensionAPI) {
 
   function requestOverlayRender(): void {
     overlayTui?.requestRender();
+  }
+
+  function scheduleRenderTick(ctx: ExtensionContext): void {
+    clearRenderTimer();
+    if (!startTime) return;
+
+    const elapsedMs = Math.max(0, Date.now() - startTime);
+    const delayMs = Math.max(50, 1000 - (elapsedMs % 1000));
+
+    timer = setTimeout(() => {
+      timer = null;
+      if (!startTime || !uiVisible) return;
+
+      if (uiMode === "overlay") {
+        if (overlayHandle && !overlayHandle.isHidden()) {
+          requestOverlayRender();
+        }
+      } else if (uiMode === "status") {
+        renderRunningStatus(ctx);
+      }
+
+      scheduleRenderTick(ctx);
+    }, delayMs);
   }
 
   function syncOverlayVisibility(): void {
@@ -278,23 +301,15 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("agent_start", async (_event, ctx) => {
-    clearIntervalTimer();
+    clearRenderTimer();
 
     startTime = Date.now();
     refreshUi(ctx);
-
-    timer = setInterval(() => {
-      if (!uiVisible) return;
-      if (uiMode === "overlay") {
-        requestOverlayRender();
-      } else if (uiMode === "status") {
-        renderRunningStatus(ctx);
-      }
-    }, 1000);
+    scheduleRenderTick(ctx);
   });
 
   pi.on("agent_end", async (_event, ctx) => {
-    clearIntervalTimer();
+    clearRenderTimer();
 
     if (!startTime) {
       refreshUi(ctx);
@@ -312,7 +327,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", async (_event, ctx) => {
-    clearIntervalTimer();
+    clearRenderTimer();
     clearStatus(ctx);
     if (overlayHostMounted) closeOverlayHost(ctx);
     startTime = null;
