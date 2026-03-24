@@ -394,8 +394,28 @@ After each execution slice, report:
    - fully resolved
    - partially advanced
    - or only supported by prerequisite cleanup
+4. an explicit queue-progress summary in the form:
+   - `resolved X/Y issues`
+
+`X` should be the number of queued issues resolved so far in the active issue set, and `Y` should be the total size of that issue set.
+If you do not already know those numbers, compute them from the current `.desloppify` artifacts before reporting.
 
 Do not leave the mapping implicit. Keep the queue-to-commit relationship explicit throughout execution.
+
+### Queue exhaustion rule
+
+If the queued desloppify issue set you are executing against is exhausted (for example, the original approved review queue is now fully mapped/resolved and there are **0 remaining queued issues**), then:
+
+1. say so explicitly
+2. stop proposing additional discretionary “cleanup slices” or polish refactors
+3. switch to the real next step instead:
+   - local final validation
+   - approved rescan/rerun/final desloppify verification
+   - handling only genuinely new findings from that rerun
+
+Do **not** keep inventing more execution slices after the queue is exhausted.
+
+If the user wants extra non-desloppify polish after the queue is done, that must be framed explicitly as **optional post-queue work**, not as if it still came from the active desloppify queue.
 
 ### Commit discipline is mandatory
 

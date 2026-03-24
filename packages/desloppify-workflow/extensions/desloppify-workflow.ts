@@ -383,6 +383,7 @@ function buildPhaseInstructions(state: WorkflowState): string[] {
         "Execute batches one by one using the existing approved plan baseline; do not re-plan just because minor cleanup changes the queue a bit.",
         "Commit every completed logical slice before resolving it — at least one commit per execution item or coherent batch slice.",
         "After each commit, record it with `desloppify plan commit-log record`.",
+        "Every time you report execution progress, include an explicit queue-progress summary in the form `resolved X/Y issues` for the active queued issue set; if you do not already know X and Y, compute them from the current desloppify artifacts before reporting.",
         "Only rescan or retriage if the stored policy allows it or the user explicitly approves it.",
         "Mark the workflow complete when the run is genuinely finished so these injected rules stop.",
       ];
