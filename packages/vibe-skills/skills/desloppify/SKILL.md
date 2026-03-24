@@ -314,9 +314,42 @@ Once the user approves execution, enter the normal loop:
 ```bash
 desloppify next
 # fix the issue(s)
+# commit the completed logical slice
 # run the resolve command shown by desloppify
 # repeat
 ```
+
+### Commit discipline is mandatory
+
+Do **not** accumulate a large pile of unrelated fixes without committing.
+
+- Commit in **logical slices**.
+- Make **at least one commit per execution item / batch slice you complete**.
+- If `desloppify next` gives you one concrete item, fix it and commit that completed item before moving on.
+- If you intentionally batch several closely related findings into one coherent refactor, commit that coherent batch before moving on.
+- Do **not** wait until the end of a long pass to make one giant commit.
+
+Preferred loop:
+
+```bash
+desloppify next
+# inspect the current execution item
+# fix it properly
+git add <relevant files>
+git commit -m "fix(<area>): <what was improved>"
+# run the resolve command shown by desloppify
+desloppify plan commit-log record
+```
+
+Commit messages should describe the actual quality improvement, not just say "desloppify".
+
+Examples:
+
+- `fix(cache): remove sync persistence side effects`
+- `refactor(webview): split analysis target state handling`
+- `test(treemap): add coverage for interaction edge cases`
+
+If a fix spans multiple meaningful sub-slices, prefer multiple smaller commits over one large mixed commit.
 
 Use `desloppify backlog` only when you need broader context beyond the current execution queue.
 
