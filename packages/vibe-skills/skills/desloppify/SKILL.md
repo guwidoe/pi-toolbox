@@ -43,15 +43,20 @@ State persists in `.desloppify/`.
 
 Before running the first scan, ask the user:
 
-1. **Scan mode:**
-   - `objective-only`
-   - `full`
+1. **Workflow mode:**
+   - `objective-only scan`
+   - `full workflow`
 
-2. **If scan mode is `full`: what model should reviewer agents use?**
+2. **If workflow mode is `full workflow`: what model should reviewer agents use for the subjective review phase?**
    - Remember this choice and use it consistently for the reviewer phase.
    - Keep reviewer agents isolated from prior score/target anchoring as much as possible.
 
 If the target path is unclear, also ask what path to scan (`.` / `src/` / package dir / etc.).
+
+Be explicit about the meaning of the two modes:
+
+- **`objective-only scan`** means run only the mechanical/objective scan path.
+- **`full workflow`** means start with `desloppify scan --profile full`, then continue into the separate subjective review phase. In desloppify, the scan command itself does **not** run reviewer agents inline; it queues that work for a later `desloppify review ...` step.
 
 ## Setup and Installation
 
@@ -123,7 +128,7 @@ desloppify scan --path <target> --profile objective
 This is the mechanical/objective path only.
 Do **not** run reviewer agents in this mode unless the user later changes their mind.
 
-### Full mode
+### Full workflow mode
 
 Use:
 
@@ -131,8 +136,11 @@ Use:
 desloppify scan --path <target> --profile full
 ```
 
-Full mode means the workflow may later include subjective/reviewer scoring.
-If reviewer work is needed, use the **user-selected reviewer model**.
+This is only the **first step** of the full workflow.
+
+Important: in desloppify, `scan --profile full` does **not** automatically execute reviewer agents inline. It runs the full-profile scan, then usually queues subjective review work for a separate `desloppify review ...` step.
+
+If subjective review is needed, run that separate reviewer phase next using the **user-selected reviewer model**.
 
 ## Checkpoint 1 — After Scan
 
@@ -140,7 +148,7 @@ Immediately after the first scan, **stop and report back**.
 
 Your report should include:
 
-- scan mode used
+- workflow mode used
 - scanned path
 - exclusions applied
 - any questionable exclusions that were not applied
@@ -153,15 +161,32 @@ Your report should include:
 - whether subjective/reviewer work is still pending (if full mode)
 - whether the queue looks noisy or clean
 
-Then propose the next step clearly:
+If `full workflow` was selected, explicitly state:
 
-> Next I will manually review the scan results, separate real issues from false positives and genuine non-issues, and mark only truly justified findings as false-positive or wontfix.
+- that the **initial full-profile scan is complete**
+- whether the subjective review phase has or has not been run yet
+- that this is expected because desloppify separates `scan --profile full` from `review ...`
+
+Then propose the next step clearly.
+
+- If the user chose **`objective-only scan`**, say:
+
+  > Next I will manually review the scan results, separate real issues from false positives and genuine non-issues, and mark only truly justified findings as false-positive or wontfix.
+
+- If the user chose **`full workflow`**, say:
+
+  > Next I will run the subjective reviewer phase using the chosen reviewer model, import those results, and then do the manual review/disposition pass so the judgment is based on both objective and subjective findings.
 
 Do **not** continue until the user confirms.
 
 ## Manual Review / Validity Triage Step
 
-After the user approves the post-scan checkpoint, do a careful review pass over the findings.
+After the user approves the post-scan checkpoint, do the next step appropriate to the selected workflow mode.
+
+- In **`objective-only scan`** mode: go straight to the manual review/disposition pass.
+- In **`full workflow`** mode: run the subjective reviewer phase first, then do the manual review/disposition pass.
+
+Do a careful review pass over the findings.
 
 Use commands like these as needed:
 
@@ -174,7 +199,7 @@ desloppify show --status open
 desloppify show <pattern>
 ```
 
-If full mode requires subjective review, complete that reviewer phase first or as part of this step, using the **chosen reviewer model**, then work from the updated results.
+If `full workflow` mode is active, the reviewer phase must happen before final disposition decisions, using the **chosen reviewer model**, so the review/disposition pass works from the updated imported results rather than from objective findings alone.
 
 ### Reviewer phase guidance (full mode)
 
