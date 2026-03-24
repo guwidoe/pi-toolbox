@@ -6,6 +6,7 @@ Personal workflow skills for pi, extracted from `vibe-setup`.
 
 - `agentic-architecture-review`
 - `bitwarden`
+- `desloppify`
 - `install-workflows`
 - `integrate-learning`
 - `propose-learning`
