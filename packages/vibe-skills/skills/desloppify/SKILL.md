@@ -29,12 +29,20 @@ Do **not** jump straight from scan to endless fixing. Pause at the defined check
 
 If the `desloppify_workflow` tool is available, use it as the authoritative workflow state tracker.
 
-- After collecting the user's initial answers, call it to **start** the run with the chosen mode, target path, and reviewer settings.
+- After collecting the user's initial answers, call it to **start** the run with the chosen mode, target path, reviewer settings, and cost policy.
+- Default to a cost-conscious execution posture unless the user says otherwise:
+  - `executionPolicy=cheap`
+  - `rescanPolicy=batch-boundary` (or stricter)
+  - `retriagePolicy=if-invalidated`
+  - `expensivePlanningAllowed=false`
 - Update the stored **phase** whenever you move into a new major phase.
+- Record the approved execution cluster/batch plan as the workflow's **approved plan baseline** before execution.
+- Treat that baseline as authoritative during execution unless it is explicitly invalidated.
+- Do **not** run expensive runner-backed planning (`desloppify ... --run-stages`, `--runner ...`) unless the user explicitly approved it and the workflow state was updated accordingly.
 - Keep reviewer model/thinking settings current there rather than relying on memory.
 - When the run is genuinely finished, call it to **complete** the run so per-turn workflow injections stop.
 
-This tool exists to keep the workflow fresh across compactions and long sessions.
+This tool exists to keep the workflow fresh across compactions and long sessions, and to stop cost blowups from eager rescans/retriage.
 
 ## What desloppify is doing
 

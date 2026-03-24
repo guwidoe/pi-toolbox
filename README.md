@@ -9,7 +9,7 @@ Monorepo for reusable pi packages.
 - `packages/clipboard-image` — cross-platform clipboard image paste extension (`Alt+V`, `paste-image`)
 - `packages/prompt-timer` — persistent prompt timing extension (non-capturing overlay UI, no context message injection)
 - `packages/openai-image` — OpenAI image-generation extension (`/image`, `openai_image` tool)
-- `packages/desloppify-workflow` — persistent workflow-state extension for supervised desloppify runs
+- `packages/desloppify-workflow` — persistent workflow + cost-control extension for supervised desloppify runs
 - `packages/vibe-skills` — personal workflow skills extracted from `vibe-setup`
 - `packages/frontend-design` — OpenAI-based frontend design skill (`frontend-design`, override-ready)
 
