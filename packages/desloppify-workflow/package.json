@@ -1,0 +1,20 @@
+{
+  "name": "@guwidoe/pi-desloppify-workflow",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "pi extension: persistent workflow state for supervised desloppify runs",
+  "license": "MIT",
+  "keywords": ["pi-package"],
+  "engines": {
+    "node": ">=20"
+  },
+  "pi": {
+    "extensions": ["./extensions/desloppify-workflow.ts"]
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.39"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  }
+}
