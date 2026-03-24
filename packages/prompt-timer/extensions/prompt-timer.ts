@@ -101,7 +101,7 @@ export default function (pi: ExtensionAPI) {
     ctx.ui.setStatus(STATUS_KEY, `⏱ last ${formatDuration(lastDurationMs)} (${TOGGLE_SHORTCUT})`);
   }
 
-  function shouldShowOverlay(): boolean {
+  function shouldMountOverlay(): boolean {
     return uiMode === "overlay" && uiVisible && startTime != null;
   }
 
@@ -132,11 +132,6 @@ export default function (pi: ExtensionAPI) {
     }, delayMs);
   }
 
-  function syncOverlayVisibility(): void {
-    if (!overlayHandle) return;
-    overlayHandle.setHidden(!shouldShowOverlay());
-  }
-
   function closeOverlayHost(ctx: ExtensionContext): void {
     ctx.ui.setWidget(OVERLAY_WIDGET_KEY, undefined);
     overlayHandle = null;
@@ -145,7 +140,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   function ensureOverlayHost(ctx: ExtensionContext): void {
-    if (!ctx.hasUI || uiMode !== "overlay" || overlayHostMounted) return;
+    if (!ctx.hasUI || !shouldMountOverlay() || overlayHostMounted) return;
 
     overlayHostMounted = true;
 
@@ -176,7 +171,6 @@ export default function (pi: ExtensionAPI) {
       });
 
       overlayHandle = handle;
-      syncOverlayVisibility();
 
       return {
         render(): string[] {
@@ -205,14 +199,13 @@ export default function (pi: ExtensionAPI) {
 
   function refreshUi(ctx: ExtensionContext): void {
     if (uiMode === "overlay") {
-      if (!uiVisible) {
-        syncOverlayVisibility();
-        clearStatus(ctx);
-        return;
-      }
+      if (!shouldMountOverlay()) {
+        if (overlayHostMounted) closeOverlayHost(ctx);
+        if (!uiVisible) {
+          clearStatus(ctx);
+          return;
+        }
 
-      if (!startTime) {
-        syncOverlayVisibility();
         if (lastDurationMs != null) {
           ctx.ui.setStatus(STATUS_KEY, `⏱ last ${formatDuration(lastDurationMs)} (${TOGGLE_SHORTCUT})`);
         } else {
@@ -223,7 +216,6 @@ export default function (pi: ExtensionAPI) {
 
       clearStatus(ctx);
       ensureOverlayHost(ctx);
-      syncOverlayVisibility();
       requestOverlayRender();
       return;
     }
