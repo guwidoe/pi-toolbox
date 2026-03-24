@@ -81,21 +81,34 @@ Use it only if the user specifically wants the upstream assistant-specific docs 
 Before scanning:
 
 1. Ensure `.desloppify/` is in `.gitignore`.
-2. Inspect the repo for obvious exclusions:
+2. **Proactively figure out which directories should be ignored before the first scan.** Do not wait for scan noise to discover them.
+3. Inspect the repo structure and distinguish real source from non-source directories. In particular, look for:
    - vendor dirs
    - generated code
    - build output
    - dist / coverage / caches
+   - downloaded test harnesses / editor bundles
+   - benchmark snapshots / fixture mirrors / copied repo snapshots
    - worktrees
    - vendored SDKs
    - giant fixture bundles that are not real source
-3. Exclude obvious junk with:
+4. Use concrete evidence when deciding:
+   - whether the directory is tracked source vs generated/downloaded/runtime state
+   - whether it is edited by humans as part of the real codebase
+   - whether it duplicates or mirrors other source trees
+   - whether scanning it would mostly create noise rather than actionable findings
+5. Useful checks include:
+   - `git ls-files <dir>` or equivalent tracked-file inspection
+   - checking whether the directory is build/download/cache output
+   - checking whether it is regenerated from another source location
+6. Exclude obvious junk before the first scan with:
 
 ```bash
 desloppify exclude <path>
 ```
 
-4. For anything questionable, **show the candidate to the user first** and ask before excluding it.
+7. For anything questionable, **show the candidate to the user first** and ask before excluding it.
+8. In the first post-scan report, explicitly mention which directories were pre-excluded and why.
 
 ## Scan Modes
 
