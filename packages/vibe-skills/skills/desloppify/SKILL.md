@@ -29,6 +29,12 @@ Do **not** jump straight from scan to endless fixing. Pause at the defined check
 
 If the `desloppify_workflow` tool is available, use it as the authoritative workflow state tracker.
 
+Important:
+
+- The **tool** is agent-callable.
+- The `/desloppify-workflow ...` **command** is user-facing.
+- If you can do the work through the tool yourself, do **not** tell the user to type workflow commands manually.
+
 - After collecting the user's initial answers, call it to **start** the run with the chosen mode, target path, reviewer settings, and cost policy.
 - Default to a cost-conscious execution posture unless the user says otherwise:
   - `executionPolicy=cheap`
@@ -41,6 +47,23 @@ If the `desloppify_workflow` tool is available, use it as the authoritative work
 - Do **not** run expensive runner-backed planning (`desloppify ... --run-stages`, `--runner ...`) unless the user explicitly approved it and the workflow state was updated accordingly.
 - Keep reviewer model/thinking settings current there rather than relying on memory.
 - When the run is genuinely finished, call it to **complete** the run so per-turn workflow injections stop.
+
+### Resume/bootstrap rule
+
+If the user asks to **continue / resume** an existing desloppify run, and the `desloppify_workflow` tool is available but no workflow state is active yet:
+
+1. **Bootstrap the workflow state yourself via the tool. Do not ask the user to run `/desloppify-workflow ...` commands.**
+2. Infer the most likely current phase from the session and `.desloppify/` evidence.
+3. If scan/review/batching are already complete and the user wants to keep fixing, resume at **`execution`**.
+4. Recreate the stored policy in a cost-conscious way unless the user says otherwise:
+   - `executionPolicy=cheap`
+   - `rescanPolicy=batch-boundary` or stricter if the user clearly wants fewer rescans
+   - `retriagePolicy=if-invalidated` or stricter if the user clearly wants less replanning
+   - `expensivePlanningAllowed=false`
+5. If there is already an approved batch/cluster direction from the conversation, store it as the **approved plan baseline**.
+6. Only ask follow-up questions if truly necessary to avoid making up key facts.
+
+In other words: when resuming, prefer **agent-side tool bootstrap** over user-side slash-command ceremony.
 
 This tool exists to keep the workflow fresh across compactions and long sessions, and to stop cost blowups from eager rescans/retriage.
 
@@ -78,6 +101,8 @@ Be explicit about the meaning of the two modes:
 - **`full workflow`** means start with `desloppify scan --profile full`, then continue into the separate subjective review phase. In desloppify, the scan command itself does **not** run reviewer agents inline; it queues that work for a later `desloppify review ...` step.
 
 Once these answers are known, if `desloppify_workflow` is available, start the tracked run immediately before doing the scan/setup work.
+
+If the user is resuming an existing run instead of starting a fresh one, initialize or repair the workflow state yourself via the tool before continuing.
 
 ## Setup and Installation
 
