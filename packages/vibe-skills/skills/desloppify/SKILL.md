@@ -365,6 +365,38 @@ desloppify next
 # repeat
 ```
 
+### Queue anchoring is mandatory before each execution slice
+
+Before starting each new execution slice, explicitly anchor the work to the real desloppify queue.
+
+State all of the following **before** doing the work:
+
+1. the **approved cluster / batch**
+2. the exact queued **issue id(s)** you are addressing
+3. why this slice directly addresses those issue id(s)
+4. the commit message you expect to use for this slice
+
+Do not drift into vague “while I’m here” cleanup.
+
+If a candidate change is only **adjacent/supporting cleanup**, say so explicitly before doing it:
+
+> This is support work for issue `<id>` because `<reason>`.
+
+If you cannot clearly connect the work to a queued issue or to necessary support work for that issue, **do not do the slice**.
+
+### Post-slice accounting is mandatory
+
+After each execution slice, report:
+
+1. the actual commit hash + message
+2. the exact queued issue id(s) it addressed
+3. whether those issue id(s) were:
+   - fully resolved
+   - partially advanced
+   - or only supported by prerequisite cleanup
+
+Do not leave the mapping implicit. Keep the queue-to-commit relationship explicit throughout execution.
+
 ### Commit discipline is mandatory
 
 Do **not** accumulate a large pile of unrelated fixes without committing.
@@ -405,7 +437,8 @@ Fix properly, not minimally.
 
 - Large refactors are allowed.
 - Small details matter too.
-- Rescan periodically when appropriate.
+- Do not introduce off-queue cleanup unless it is clearly justified support work for the active queued issue(s).
+- Rescan only when the active workflow policy allows it or the user explicitly asks for it.
 - Follow the queue, but still apply engineering judgment.
 
 ## Summary of Required Pauses
