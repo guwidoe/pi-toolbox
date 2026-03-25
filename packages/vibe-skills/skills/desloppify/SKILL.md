@@ -108,14 +108,29 @@ If the user is resuming an existing run instead of starting a fresh one, initial
 
 In this environment, prefer **`uv`** over raw `pip` when practical.
 
+Do not assume the `uvx` shim exists.
+In some environments, `uv` is installed but `uvx` is not exposed separately. In that case, use `uv tool run --from ...` directly.
+
+Use this order:
+
+1. If `desloppify` is already installed and on `PATH`, use it.
+2. Otherwise, if `uv` is available, use `uv tool run --from "desloppify[full]" desloppify ...`.
+3. Treat `uvx --from ...` only as an optional shorthand when `uvx` is actually present.
+4. Only use `pip install ...` if the user explicitly wants that route **and** the environment allows it.
+
+Do not do broad filesystem hunting for `uv`/`uvx` binaries. Use normal command discovery (`command -v uv`, `command -v uvx`, `command -v desloppify`) and proceed from there.
+
 Examples:
 
 ```bash
-# one-shot command style
-uvx --from "desloppify[full]" desloppify --help
-
 # if the tool is already installed globally
 command -v desloppify
+
+# preferred one-shot command style when uv is available
+uv tool run --from "desloppify[full]" desloppify --help
+
+# optional shorthand only if uvx exists in this environment
+uvx --from "desloppify[full]" desloppify --help
 ```
 
 If the user explicitly wants the upstream install flow, this is also acceptable:
@@ -123,6 +138,8 @@ If the user explicitly wants the upstream install flow, this is also acceptable:
 ```bash
 pip install --upgrade "desloppify[full]"
 ```
+
+But if `pip` is disabled or the environment says to use `uv` instead, do **not** keep retrying `pip`; switch back to the `uv` path.
 
 Because this is a custom Pi skill already, running `desloppify update-skill ...` is **optional**.
 Use it only if the user specifically wants the upstream assistant-specific docs installed too.
