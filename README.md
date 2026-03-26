@@ -7,7 +7,7 @@ Monorepo for reusable pi packages.
 - `packages/web-search` — `web-search` skill (DuckDuckGo search + optional page content extraction)
 - `packages/web-fetch` — `web-fetch` skill (fetch URL content as markdown with search fallback)
 - `packages/clipboard-image` — cross-platform clipboard image paste extension (`Alt+V`, `paste-image`)
-- `packages/prompt-timer` — persistent prompt timing extension (non-capturing overlay UI, no context message injection)
+- `packages/prompt-timer` — persistent prompt timing extension (default status UI, optional overlay, no context message injection)
 - `packages/openai-image` — OpenAI image-generation extension (`/image`, `openai_image` tool)
 - `packages/desloppify-workflow` — persistent workflow + cost-control extension for supervised desloppify runs
 - `packages/vibe-skills` — personal workflow skills extracted from `vibe-setup`

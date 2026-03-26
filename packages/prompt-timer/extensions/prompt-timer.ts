@@ -31,7 +31,7 @@ function fit(text: string, width: number): string {
 
 function parseUiMode(modeFlag: unknown, enabled: boolean): UiMode {
   if (!enabled) return "off";
-  const raw = String(modeFlag ?? "overlay").trim().toLowerCase();
+  const raw = String(modeFlag ?? "status").trim().toLowerCase();
   if (raw === "status") return "status";
   if (raw === "off" || raw === "none" || raw === "false") return "off";
   return "overlay";
@@ -53,9 +53,9 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerFlag("prompt-timer-ui-mode", {
-    description: "Prompt timer UI mode: overlay (default) or status",
+    description: "Prompt timer UI mode: status (default) or overlay",
     type: "string",
-    default: "overlay",
+    default: "status",
   });
 
   pi.registerFlag("prompt-timer-persist", {
@@ -68,7 +68,7 @@ export default function (pi: ExtensionAPI) {
   let lastDurationMs: number | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
-  let uiMode: UiMode = "overlay";
+  let uiMode: UiMode = "status";
   let persistEnabled = true;
   let uiVisible = true;
 
