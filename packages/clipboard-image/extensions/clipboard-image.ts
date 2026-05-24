@@ -1,4 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -23,6 +24,7 @@ type ExecResult = {
   code?: number;
   stdout: string;
   stderr: string;
+  killed?: boolean;
 };
 
 type CaptureResult = {
@@ -71,8 +73,19 @@ function parseTypes(raw: string): string[] {
 }
 
 function errorFromExec(prefix: string, result: ExecResult): Error {
-  const details = result.stderr.trim() || result.stdout.trim() || "unknown error";
+  const status = `exit code ${result.code ?? "unknown"}${result.killed ? ", killed" : ""}`;
+  const details = result.stderr.trim() || result.stdout.trim() || status;
   return new Error(`${prefix}: ${details}`);
+}
+
+function isWsl(): boolean {
+  if (process.env.WSL_DISTRO_NAME || process.env.WSLENV) return true;
+
+  try {
+    return /microsoft|wsl/i.test(fs.readFileSync("/proc/version", "utf8"));
+  } catch {
+    return false;
+  }
 }
 
 async function execBash(pi: ExtensionAPI, command: string, timeout: number): Promise<ExecResult> {
@@ -139,26 +152,53 @@ async function captureViaMacOS(pi: ExtensionAPI, outputPath: string): Promise<Ca
   return { outputPath, inputType: "image/png", backend: "macos" };
 }
 
-async function execPowerShell(
+async function execPowerShellArgs(
   pi: ExtensionAPI,
-  command: string,
+  args: string[],
   timeout: number,
 ): Promise<ExecResult> {
-  const candidates = ["powershell", "pwsh"];
+  const windowsPowerShell = "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe";
+  const candidates: Array<{ bin: string; prefix?: string[] }> = isWsl()
+    ? [
+        { bin: "/init", prefix: [windowsPowerShell] },
+        { bin: "powershell.exe" },
+        { bin: windowsPowerShell },
+        { bin: "pwsh.exe" },
+        { bin: "powershell" },
+        { bin: "pwsh" },
+      ]
+    : [
+        { bin: "powershell.exe" },
+        { bin: "pwsh.exe" },
+        { bin: "powershell" },
+        { bin: "pwsh" },
+      ];
   let lastError: Error | null = null;
 
-  for (const bin of candidates) {
+  for (const { bin, prefix = [] } of candidates) {
+    if (bin.startsWith("/mnt/") && !fs.existsSync(bin)) continue;
+    if (prefix.some((entry) => entry.startsWith("/mnt/") && !fs.existsSync(entry))) continue;
+
     try {
-      const result = (await pi.exec(
-        bin,
-        ["-NoProfile", "-NonInteractive", "-Sta", "-Command", command],
-        { timeout },
-      )) as ExecResult;
+      const result = (await pi.exec(bin, [...prefix, ...args], { timeout })) as ExecResult;
 
       const stderr = (result.stderr || "").toLowerCase();
+      const stdout = (result.stdout || "").toLowerCase();
+      const noOutput = stderr.trim().length === 0 && stdout.trim().length === 0;
       const notFound =
         (result.code ?? 0) !== 0 &&
-        (stderr.includes("not recognized") || stderr.includes("not found"));
+        (noOutput ||
+          stderr.includes("not recognized") ||
+          stderr.includes("not found") ||
+          stderr.includes("command not found") ||
+          stderr.includes("no such file or directory") ||
+          stderr.includes("enoent") ||
+          stderr.includes("cannot execute binary file") ||
+          stderr.includes("exec format error") ||
+          stdout.includes("command not found") ||
+          stdout.includes("enoent") ||
+          stdout.includes("cannot execute binary file") ||
+          stdout.includes("exec format error"));
       if (!notFound) return result;
 
       lastError = new Error(`${bin} is not available`);
@@ -170,46 +210,192 @@ async function execPowerShell(
   throw lastError ?? new Error("No PowerShell executable found.");
 }
 
+async function execPowerShellFile(
+  pi: ExtensionAPI,
+  scriptPath: string,
+  timeout: number,
+): Promise<ExecResult> {
+  return execPowerShellArgs(
+    pi,
+    ["-NoProfile", "-NonInteractive", "-Sta", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
+    timeout,
+  );
+}
+
 async function captureViaWindows(pi: ExtensionAPI, outputPath: string): Promise<CaptureResult> {
-  const quotedPath = psQuote(outputPath);
+  const runningInWsl = isWsl();
+  const scratchDir = runningInWsl ? "/mnt/c/Temp" : os.tmpdir();
+  const runId = formatTimestamp();
+  let powershellOutputPath = outputPath;
+  let windowsOutputPath = outputPath;
+  let scriptPath = path.join(os.tmpdir(), `pi-clipboard-${runId}.ps1`);
+  let errorPath = path.join(os.tmpdir(), `pi-clipboard-${runId}.error.txt`);
+  let windowsScriptPath = scriptPath;
+  let windowsErrorPath = errorPath;
+
+  if (runningInWsl) {
+    fs.mkdirSync(scratchDir, { recursive: true });
+    powershellOutputPath = path.join(scratchDir, `pi-clipboard-${runId}.${OUTPUT_FORMAT}`);
+    scriptPath = path.join(scratchDir, `pi-clipboard-${runId}.ps1`);
+    errorPath = path.join(scratchDir, `pi-clipboard-${runId}.error.txt`);
+
+    const converted = await execBash(pi, `wslpath -w ${shellQuote(powershellOutputPath)}`, 3000);
+    if ((converted.code ?? 0) !== 0 || !converted.stdout.trim()) {
+      throw errorFromExec("WSL path conversion failed", converted);
+    }
+    windowsOutputPath = converted.stdout.trim();
+
+    const convertedScriptPath = await execBash(pi, `wslpath -w ${shellQuote(scriptPath)}`, 3000);
+    if ((convertedScriptPath.code ?? 0) !== 0 || !convertedScriptPath.stdout.trim()) {
+      throw errorFromExec("WSL script path conversion failed", convertedScriptPath);
+    }
+    windowsScriptPath = convertedScriptPath.stdout.trim();
+
+    const convertedErrorPath = await execBash(pi, `wslpath -w ${shellQuote(errorPath)}`, 3000);
+    if ((convertedErrorPath.code ?? 0) !== 0 || !convertedErrorPath.stdout.trim()) {
+      throw errorFromExec("WSL error path conversion failed", convertedErrorPath);
+    }
+    windowsErrorPath = convertedErrorPath.stdout.trim();
+  }
+
+  const quotedPath = psQuote(windowsOutputPath);
+  const quotedErrorPath = psQuote(windowsErrorPath);
   const script = `
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
-if (-not [System.Windows.Forms.Clipboard]::ContainsImage()) {
-  Write-Error "No image in clipboard."
-  exit 2
+$ErrorActionPreference = "Stop"
+$errorLogPath = '${quotedErrorPath}'
+function FailClipboardImageCapture([string]$message, [int]$code) {
+  try {
+    $parent = Split-Path -Parent $errorLogPath
+    if ($parent) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+    Set-Content -LiteralPath $errorLogPath -Value $message -Encoding UTF8
+  } catch {}
+  Write-Output ("CLIPBOARD_IMAGE_ERROR: " + $message)
+  exit $code
 }
+try {
+  Add-Type -AssemblyName System.Windows.Forms
+  Add-Type -AssemblyName System.Drawing
 
-$img = [System.Windows.Forms.Clipboard]::GetImage()
-if ($null -eq $img) {
-  Write-Error "No image in clipboard."
-  exit 2
-}
+  $dataObject = [System.Windows.Forms.Clipboard]::GetDataObject()
+  $formats = @()
+  if ($null -ne $dataObject) {
+    $formats = @($dataObject.GetFormats())
+  }
 
-$max = ${MAX_DIMENSION}
-if ($img.Width -gt $max -or $img.Height -gt $max) {
-  $scale = [Math]::Min($max / [double]$img.Width, $max / [double]$img.Height)
-  $newWidth = [Math]::Max(1, [int]([Math]::Round($img.Width * $scale)))
-  $newHeight = [Math]::Max(1, [int]([Math]::Round($img.Height * $scale)))
+  $ownedStreams = New-Object System.Collections.ArrayList
+  $img = $null
 
-  $resized = New-Object System.Drawing.Bitmap($newWidth, $newHeight)
-  $graphics = [System.Drawing.Graphics]::FromImage($resized)
-  $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-  $graphics.DrawImage($img, 0, 0, $newWidth, $newHeight)
-  $graphics.Dispose()
+  if ([System.Windows.Forms.Clipboard]::ContainsImage()) {
+    $img = [System.Windows.Forms.Clipboard]::GetImage()
+  }
+
+  if ($null -eq $img -and $null -ne $dataObject -and $dataObject.GetDataPresent([System.Windows.Forms.DataFormats]::Bitmap)) {
+    $bitmapData = $dataObject.GetData([System.Windows.Forms.DataFormats]::Bitmap)
+    if ($bitmapData -is [System.Drawing.Image]) {
+      $img = $bitmapData
+    }
+  }
+
+  if ($null -eq $img -and $null -ne $dataObject) {
+    foreach ($format in @("PNG", "image/png")) {
+      if (-not $dataObject.GetDataPresent($format)) { continue }
+      $pngData = $dataObject.GetData($format)
+      $stream = $null
+      if ($pngData -is [System.IO.Stream]) {
+        $stream = $pngData
+        if ($stream.CanSeek) { $stream.Position = 0 }
+      } elseif ($pngData -is [byte[]]) {
+        $stream = [System.IO.MemoryStream]::new($pngData)
+        [void]$ownedStreams.Add($stream)
+      }
+      if ($null -ne $stream) {
+        $img = [System.Drawing.Image]::FromStream($stream)
+        break
+      }
+    }
+  }
+
+  if ($null -eq $img -and $null -ne $dataObject -and $dataObject.GetDataPresent([System.Windows.Forms.DataFormats]::FileDrop)) {
+    $files = @($dataObject.GetData([System.Windows.Forms.DataFormats]::FileDrop))
+    foreach ($file in $files) {
+      if ($file -match '\\.(png|jpe?g|bmp|gif|tiff?)$' -and [System.IO.File]::Exists($file)) {
+        $img = [System.Drawing.Image]::FromFile($file)
+        break
+      }
+    }
+  }
+
+  if ($null -eq $img -and [System.Windows.Forms.Clipboard]::ContainsText()) {
+    $text = [System.Windows.Forms.Clipboard]::GetText().Trim()
+    if ($text -match '^file://') {
+      try { $text = ([System.Uri]$text).LocalPath } catch {}
+    }
+    if ($text -match '\\.(png|jpe?g|bmp|gif|tiff?)$' -and [System.IO.File]::Exists($text)) {
+      $img = [System.Drawing.Image]::FromFile($text)
+    }
+  }
+
+  if ($null -eq $img) {
+    FailClipboardImageCapture ("No image in Windows clipboard. Formats: " + (($formats | Select-Object -First 16) -join ", ")) 2
+  }
+
+  $max = ${MAX_DIMENSION}
+  if ($img.Width -gt $max -or $img.Height -gt $max) {
+    $scale = [Math]::Min($max / [double]$img.Width, $max / [double]$img.Height)
+    $newWidth = [Math]::Max(1, [int]([Math]::Round($img.Width * $scale)))
+    $newHeight = [Math]::Max(1, [int]([Math]::Round($img.Height * $scale)))
+
+    $resized = New-Object System.Drawing.Bitmap($newWidth, $newHeight)
+    $graphics = [System.Drawing.Graphics]::FromImage($resized)
+    $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $graphics.DrawImage($img, 0, 0, $newWidth, $newHeight)
+    $graphics.Dispose()
+    $img.Dispose()
+    $img = $resized
+  }
+
+  $parent = Split-Path -Parent '${quotedPath}'
+  if ($parent) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+  $img.Save('${quotedPath}', [System.Drawing.Imaging.ImageFormat]::Png)
   $img.Dispose()
-  $img = $resized
+  foreach ($stream in $ownedStreams) { $stream.Dispose() }
+  Write-Output "image/png"
+} catch {
+  $message = $_.Exception.GetType().FullName + ": " + $_.Exception.Message
+  if ($formats -and $formats.Count -gt 0) {
+    $message = $message + " Formats: " + (($formats | Select-Object -First 16) -join ", ")
+  }
+  FailClipboardImageCapture $message 1
 }
-
-$img.Save('${quotedPath}', [System.Drawing.Imaging.ImageFormat]::Png)
-$img.Dispose()
-Write-Output "image/png"
 `;
 
-  const result = await execPowerShell(pi, script, 12000);
-  if ((result.code ?? 0) !== 0) {
-    throw errorFromExec("Windows clipboard capture failed", result);
+  fs.writeFileSync(scriptPath, script, "utf8");
+  try {
+    const result = await execPowerShellFile(pi, windowsScriptPath, 12000);
+    if ((result.code ?? 0) !== 0) {
+      const errorLog = fs.existsSync(errorPath) ? fs.readFileSync(errorPath, "utf8").trim() : "";
+      const enrichedResult = errorLog
+        ? { ...result, stderr: result.stderr || errorLog }
+        : {
+            ...result,
+            stderr:
+              result.stderr ||
+              `exit code ${result.code ?? "unknown"}; no PowerShell output captured; script=${windowsScriptPath}; errorLog=${windowsErrorPath}`,
+          };
+      throw errorFromExec("Windows clipboard capture failed", enrichedResult);
+    }
+    if (runningInWsl) {
+      fs.copyFileSync(powershellOutputPath, outputPath);
+    }
+  } finally {
+    for (const cleanupPath of [scriptPath, errorPath, runningInWsl ? powershellOutputPath : undefined]) {
+      if (!cleanupPath) continue;
+      try {
+        fs.unlinkSync(cleanupPath);
+      } catch {
+        // Ignore cleanup errors.
+      }
+    }
   }
 
   return { outputPath, inputType: "image/png", backend: "windows" };
@@ -238,6 +424,11 @@ async function writeClipboardImage(pi: ExtensionAPI): Promise<CaptureResult> {
     const result = await attempt("macos", () => captureViaMacOS(pi, outputPath));
     if (result) return result;
   } else {
+    if (isWsl()) {
+      const windows = await attempt("windows-wsl", () => captureViaWindows(pi, outputPath));
+      if (windows) return { ...windows, backend: "windows-wsl" };
+    }
+
     const wayland = await attempt("wayland", () => captureViaWayland(pi, outputPath));
     if (wayland) return wayland;
 
