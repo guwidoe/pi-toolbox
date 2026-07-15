@@ -28,6 +28,12 @@ pi install npm:@guwidoe/pi-vibe-skills
 pi install npm:@guwidoe/pi-frontend-design
 ```
 
+## Shared external packages
+
+The tracked shared pi configuration in `vibe-setup` installs `offline-ant/pi-ant` with its root resources filtered out, then loads the checkout's `tmux-tools` subpackage through a relative local package entry. Keep the git checkout entry before the local subpackage entry so first-run package resolution installs the checkout before loading `tmux-tools`.
+
+Do not restore the archived `offline-ant/pi-tmux` or `offline-ant/pi-semaphore` packages. Their legacy `minitask` renderer ignored the TUI width contract; the maintained successor wraps rendered arguments to the available width.
+
 ## Local development
 
 ```bash
