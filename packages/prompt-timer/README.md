@@ -5,6 +5,7 @@ Prompt timer extension for pi.
 ## Features
 
 - Persists per-run timing as custom session entries (`custom`, not `custom_message`)
+- Keeps automatic retries and recovery within the original prompt's timer
 - Does not inject context/chat messages into the model conversation
 - Default UI is a minimal footer/status indicator
 - Optional **non-capturing overlay** mode (top-right, offset downward to avoid pinned prompt UI) if you explicitly opt in
