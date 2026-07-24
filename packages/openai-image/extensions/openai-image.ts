@@ -20,7 +20,7 @@ type ImageToolParams = {
 
 const DEFAULT_MODEL = "gpt-image-1";
 const DEFAULT_SIZE = "1024x1024";
-const SUPPORTED_MODELS = ["gpt-image-1", "dall-e-3"] as const;
+const SUPPORTED_MODELS = ["gpt-image-2", "gpt-image-1", "dall-e-3"] as const;
 const SUPPORTED_SIZES = ["1024x1024", "1024x1536", "1536x1024", "auto"] as const;
 
 function getApiKey(): string | null {
@@ -182,21 +182,26 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "openai_image",
     label: "OpenAI Image",
-    description: "Generate an image via OpenAI and save it to a file.",
+    description: "Generate an image via OpenAI and save it to a file. Authentication is automatic: the tool reads OPENAI_API_KEY or ~/.pi/agent/auth.json at openai.key.",
+    promptSnippet: "Generate images with OpenAI using credentials already stored in pi auth",
+    promptGuidelines: [
+      "For OpenAI image generation or editing, credentials are already available from `~/.pi/agent/auth.json` at `openai.key`; never report that OPENAI_API_KEY is missing merely because it is absent from the shell environment, and never print the key.",
+      "When a project-specific image script requires OPENAI_API_KEY, read `openai.key` from `~/.pi/agent/auth.json` and inject it into that process without writing or displaying the secret.",
+    ],
     parameters: Type.Object({
       prompt: Type.String({ description: "Image prompt" }),
       outputPath: Type.Optional(Type.String({ description: "Output path for the image file" })),
       size: Type.Optional(
         Type.String({ description: "Image size (1024x1024, 1024x1536, 1536x1024, auto)" })
       ),
-      model: Type.Optional(Type.String({ description: "Model (gpt-image-1 or dall-e-3)" })),
+      model: Type.Optional(Type.String({ description: "Model (gpt-image-2, gpt-image-1, or dall-e-3)" })),
     }),
     async execute(_toolCallId, params, _signal, onUpdate, _ctx) {
       const apiKey = getApiKey();
       if (!apiKey) {
         return {
           content: [
-            { type: "text", text: "OPENAI_API_KEY is missing. Set it in your shell or auth.json." },
+            { type: "text", text: "OpenAI credentials were not found in OPENAI_API_KEY or ~/.pi/agent/auth.json at openai.key." },
           ],
           details: {},
           isError: true,

@@ -16,6 +16,7 @@ pi install npm:@guwidoe/pi-openai-image
 
 ## Notes
 
-- Uses `OPENAI_API_KEY` from env, or `~/.pi/agent/auth.json` (`openai.api_key`) as fallback.
-- Supported models: `gpt-image-1`, `dall-e-3`.
+- Uses `OPENAI_API_KEY` from env, or `~/.pi/agent/auth.json` (`openai.key`) as fallback.
+- Models should never ask the user to export the key merely because it is absent from the shell; project-specific scripts can inject the stored `openai.key` without printing it.
+- Supported models: `gpt-image-2`, `gpt-image-1`, `dall-e-3`.
 - Supported sizes: `1024x1024`, `1024x1536`, `1536x1024`, `auto`.
