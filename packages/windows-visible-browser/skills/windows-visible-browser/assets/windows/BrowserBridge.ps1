@@ -101,7 +101,7 @@ function Test-CdpJson {
 }
 
 function Test-AgentChrome {
-    return ((Get-AgentChromeProcesses).Count -gt 0 -and (Test-CdpJson))
+    return (@(Get-AgentChromeProcesses).Count -gt 0 -and (Test-CdpJson))
 }
 
 function Wait-ForAgentChrome {
