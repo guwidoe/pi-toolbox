@@ -12,6 +12,7 @@ Monorepo for reusable pi packages.
 - `packages/desloppify-workflow` — persistent workflow + cost-control extension for supervised desloppify runs
 - `packages/vibe-skills` — personal workflow skills extracted from `vibe-setup`
 - `packages/frontend-design` — OpenAI-based frontend design skill (`frontend-design`, override-ready)
+- `packages/windows-visible-browser` — on-demand visible Windows Chrome automation for pi agents running in WSL
 
 ## Install published plugins
 
