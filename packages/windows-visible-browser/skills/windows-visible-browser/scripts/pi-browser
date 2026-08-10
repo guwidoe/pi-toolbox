@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REQUEST_TIMEOUT="${PI_BROWSER_REQUEST_TIMEOUT:-35}"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  pi-browser open <https://url>
+  pi-browser status
+  pi-browser close
+  pi-browser bridge-path
+
+Environment:
+  PI_BROWSER_BRIDGE_DIR       Override the Windows bridge directory
+  PI_BROWSER_REQUEST_TIMEOUT  Response timeout in seconds (default: 35)
+EOF
+}
+
+find_bridge_dir() {
+  if [[ -n "${PI_BROWSER_BRIDGE_DIR:-}" ]]; then
+    printf '%s\n' "$PI_BROWSER_BRIDGE_DIR"
+    return
+  fi
+
+  local candidate
+  local matches=()
+  shopt -s nullglob
+  for candidate in /mnt/c/Users/*/.pi-agent-browser; do
+    if [[ -f "$candidate/BrowserBridge.ps1" ]]; then
+      matches+=("$candidate")
+    fi
+  done
+  shopt -u nullglob
+
+  if (( ${#matches[@]} == 1 )); then
+    printf '%s\n' "${matches[0]}"
+    return
+  fi
+  if (( ${#matches[@]} > 1 )); then
+    printf 'Multiple bridge installations found. Set PI_BROWSER_BRIDGE_DIR.\n' >&2
+  else
+    printf 'Browser bridge not found under /mnt/c/Users/*/.pi-agent-browser.\n' >&2
+  fi
+  exit 2
+}
+
+require_command() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    printf 'Required command not found: %s\n' "$1" >&2
+    exit 2
+  fi
+}
+
+validate_settings() {
+  if [[ ! "$REQUEST_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
+    printf 'PI_BROWSER_REQUEST_TIMEOUT must be a positive integer.\n' >&2
+    exit 2
+  fi
+}
+
+new_uuid() {
+  if [[ -r /proc/sys/kernel/random/uuid ]]; then
+    cat /proc/sys/kernel/random/uuid
+  elif command -v uuidgen >/dev/null 2>&1; then
+    uuidgen | tr '[:upper:]' '[:lower:]'
+  else
+    python3 -c 'import uuid; print(uuid.uuid4())'
+  fi
+}
+
+send_request() {
+  local action="$1"
+  local url="${2:-}"
+  local bridge request_dir response_dir id temp_request request response expires
+
+  require_command jq
+  validate_settings
+  bridge="$(find_bridge_dir)"
+  request_dir="$bridge/requests"
+  response_dir="$bridge/responses"
+  mkdir -p "$request_dir" "$response_dir"
+
+  id="$(new_uuid)"
+  expires=$(( $(date +%s) + REQUEST_TIMEOUT ))
+  temp_request="$request_dir/.${id}.tmp"
+  request="$request_dir/${id}.json"
+  response="$response_dir/${id}.json"
+
+  if [[ "$action" == "open" ]]; then
+    jq -n --arg id "$id" --arg action "$action" --arg url "$url" --argjson expires "$expires" \
+      '{id:$id,action:$action,url:$url,expiresAtEpoch:$expires}' > "$temp_request"
+  else
+    jq -n --arg id "$id" --arg action "$action" --argjson expires "$expires" \
+      '{id:$id,action:$action,expiresAtEpoch:$expires}' > "$temp_request"
+  fi
+  mv "$temp_request" "$request"
+
+  local checks=$(( REQUEST_TIMEOUT * 4 ))
+  local i payload
+  for ((i=0; i<checks; i++)); do
+    if [[ -f "$response" ]]; then
+      payload="$(cat "$response")"
+      rm -f "$response"
+      if ! jq -e '.ok == true' >/dev/null <<<"$payload"; then
+        jq -r '"Browser bridge error: " + (.error // "unknown error")' <<<"$payload" >&2
+        exit 1
+      fi
+      printf '%s\n' "$payload"
+      return
+    fi
+    sleep 0.25
+  done
+
+  rm -f "$request"
+  printf 'Timed out waiting for the Windows browser broker.\n' >&2
+  printf 'Run the Windows installer and verify scheduled task "Pi Agent Browser Bridge" is running.\n' >&2
+  exit 1
+}
+
+command="${1:-}"
+case "$command" in
+  open)
+    url="${2:-}"
+    if [[ -z "$url" ]]; then
+      usage >&2
+      exit 2
+    fi
+    payload="$(send_request open "$url")"
+    debug_port="$(jq -r '.result.debugPort' <<<"$payload")"
+    if curl -fsS --max-time 2 "http://127.0.0.1:${debug_port}/json/version" >/dev/null; then
+      printf 'Visible Agent Chrome opened. CDP: http://127.0.0.1:%s\n' "$debug_port"
+      printf 'Use BROWSER_DEBUG_PORT=%s with the web-browser scripts.\n' "$debug_port"
+    else
+      printf 'Chrome launched, but CDP is not reachable from WSL at 127.0.0.1:%s.\n' "$debug_port" >&2
+      printf 'Confirm mirrored networking is enabled and run wsl --shutdown once.\n' >&2
+      exit 1
+    fi
+    ;;
+  status)
+    payload="$(send_request status)"
+    jq -r '
+      if .result.chromeRunning then
+        "Broker: running\nChrome: running\nCDP: " + .result.cdpUrl
+      else
+        "Broker: running\nChrome: stopped\nCDP: " + .result.cdpUrl
+      end
+    ' <<<"$payload"
+    ;;
+  close)
+    payload="$(send_request close)"
+    if jq -e '.result.chromeRunning == false' >/dev/null <<<"$payload"; then
+      printf 'Visible Agent Chrome closed.\n'
+    else
+      printf 'Close requested, but Chrome may still be running.\n' >&2
+      exit 1
+    fi
+    ;;
+  bridge-path)
+    find_bridge_dir
+    ;;
+  -h|--help|help|'')
+    usage
+    ;;
+  *)
+    printf 'Unknown command: %s\n' "$command" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

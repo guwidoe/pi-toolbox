@@ -296,12 +296,14 @@ export default function (pi: ExtensionAPI) {
   pi.on("agent_start", async (_event, ctx) => {
     clearRenderTimer();
 
-    startTime = Date.now();
+    // A low-level run starts again during automatic retries and recovery.
+    // Keep the original prompt start so those continuations do not reset the timer.
+    startTime ??= Date.now();
     refreshUi(ctx);
     scheduleRenderTick(ctx);
   });
 
-  pi.on("agent_end", async (_event, ctx) => {
+  pi.on("agent_settled", async (_event, ctx) => {
     clearRenderTimer();
 
     if (!startTime) {
