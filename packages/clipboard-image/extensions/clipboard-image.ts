@@ -276,17 +276,24 @@ try {
   Add-Type -AssemblyName System.Windows.Forms
   Add-Type -AssemblyName System.Drawing
 
+  $ownedStreams = New-Object System.Collections.ArrayList
+  $img = $null
+
+  for ($attempt = 0; $attempt -lt 15 -and $null -eq $img; $attempt++) {
+    try {
+      $img = [System.Windows.Forms.Clipboard]::GetImage()
+    } catch {
+      $img = $null
+    }
+    if ($null -eq $img) {
+      Start-Sleep -Milliseconds 100
+    }
+  }
+
   $dataObject = [System.Windows.Forms.Clipboard]::GetDataObject()
   $formats = @()
   if ($null -ne $dataObject) {
     $formats = @($dataObject.GetFormats())
-  }
-
-  $ownedStreams = New-Object System.Collections.ArrayList
-  $img = $null
-
-  if ([System.Windows.Forms.Clipboard]::ContainsImage()) {
-    $img = [System.Windows.Forms.Clipboard]::GetImage()
   }
 
   if ($null -eq $img -and $null -ne $dataObject -and $dataObject.GetDataPresent([System.Windows.Forms.DataFormats]::Bitmap)) {

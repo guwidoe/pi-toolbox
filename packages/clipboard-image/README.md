@@ -9,6 +9,7 @@ Cross-platform clipboard image extension for pi.
 - Saves clipboard images as PNG and caps max dimension to 2000px
 - Multiple backends:
   - Windows: PowerShell clipboard API
+  - WSL: Windows PowerShell clipboard API, with Wayland/X11 fallback
   - Linux: Wayland (`wl-paste`) or X11 (`xclip`) + ImageMagick (`convert`)
   - macOS: `pngpaste` (optionally `sips` for resizing)
 
@@ -21,5 +22,6 @@ pi install npm:@guwidoe/pi-clipboard-image
 ## Platform notes
 
 - **Windows**: works in native Windows pi sessions.
-- **Linux/WSL**: requires clipboard tooling (`wl-paste` or `xclip`) and ImageMagick.
+- **WSL**: reads the Windows clipboard through `powershell.exe`; Windows interop must be enabled. Linux clipboard tools are optional fallbacks.
+- **Linux**: requires clipboard tooling (`wl-paste` or `xclip`) and ImageMagick.
 - **macOS**: requires `pngpaste` (`brew install pngpaste`).

@@ -1,6 +1,6 @@
 {
   "name": "@guwidoe/pi-clipboard-image",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "pi extension: paste clipboard images into the prompt across Windows, Linux, and macOS",
   "license": "MIT",
