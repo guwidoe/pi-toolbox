@@ -2,7 +2,10 @@
   "name": "@guwidoe/pi-windows-visible-browser",
   "version": "0.1.0",
   "type": "module",
-  "description": "On-demand visible Windows Chrome automation for pi agents running in WSL",
+  "description": "On-demand isolated Windows Chrome automation for pi agents running in WSL",
+  "scripts": {
+    "test": "bash tests/pi-browser.test.sh"
+  },
   "license": "MIT",
   "keywords": ["pi-package", "wsl", "browser", "chrome", "automation"],
   "engines": {

@@ -32,7 +32,7 @@ if ($ParserErrors.Count -gt 0) {
     throw "BrowserBridge.ps1 has PowerShell syntax errors: $Messages"
 }
 
-foreach ($Directory in @("requests", "processing", "responses", "chrome-profile")) {
+foreach ($Directory in @("requests", "processing", "responses", "chrome-profile", "instances")) {
     New-Item -ItemType Directory -Force -Path (Join-Path $Root $Directory) | Out-Null
 }
 
@@ -96,6 +96,111 @@ function Enable-MirroredNetworking {
     Write-Host "Ensured WSL mirrored networking in $WslConfig."
 }
 
+function Get-NormalizedPath {
+    param([string]$Path)
+    return [System.IO.Path]::GetFullPath($Path).TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+}
+
+function Get-CommandLineProfile {
+    param([string]$CommandLine)
+    if ([string]::IsNullOrWhiteSpace($CommandLine)) {
+        return $null
+    }
+    $Match = [regex]::Match($CommandLine, '(?i)(?:^|\s)"?--user-data-dir=(?:"(?<quoted>[^"]+)"|(?<plain>[^\s"]+))"?')
+    if (-not $Match.Success) {
+        return $null
+    }
+    if ($Match.Groups['quoted'].Success) {
+        return $Match.Groups['quoted'].Value
+    }
+    return $Match.Groups['plain'].Value
+}
+
+function Test-ManagedProfile {
+    param([string]$Profile)
+    try {
+        $Normalized = Get-NormalizedPath -Path $Profile
+        $DefaultProfile = Get-NormalizedPath -Path (Join-Path $Root "chrome-profile")
+        if ($Normalized -ieq $DefaultProfile) {
+            return $true
+        }
+
+        $InstancesRoot = (Get-NormalizedPath -Path (Join-Path $Root "instances")) + [System.IO.Path]::DirectorySeparatorChar
+        if (-not $Normalized.StartsWith($InstancesRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $false
+        }
+        $Relative = $Normalized.Substring($InstancesRoot.Length)
+        $Parts = @($Relative -split '[\\/]')
+        return (
+            $Parts.Count -eq 2 -and
+            $Parts[0] -match '^[0-9a-f]{64}$' -and
+            $Parts[1] -ieq 'chrome-profile'
+        )
+    }
+    catch {
+        return $false
+    }
+}
+
+function Stop-RequestWorkers {
+    $Workers = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Name -match '^powershell(\.exe)?$' -and
+            $_.CommandLine -and
+            $_.CommandLine.Contains($BridgeScript) -and
+            $_.CommandLine -match '(?i)(?:^|\s)-RequestFilePath(?:\s|=)'
+        })
+    foreach ($Worker in $Workers) {
+        Stop-Process -Id ([int]$Worker.ProcessId) -Force -ErrorAction SilentlyContinue
+    }
+
+    $Deadline = (Get-Date).AddSeconds(5)
+    while ((Get-Date) -lt $Deadline) {
+        $Remaining = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.Name -match '^powershell(\.exe)?$' -and
+                $_.CommandLine -and
+                $_.CommandLine.Contains($BridgeScript) -and
+                $_.CommandLine -match '(?i)(?:^|\s)-RequestFilePath(?:\s|=)'
+            })
+        if ($Remaining.Count -eq 0) {
+            return
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    throw "Could not stop all Agent Chrome request workers."
+}
+
+function Stop-ManagedChromeInstances {
+    $Managed = @(Get-CimInstance Win32_Process -Filter "Name = 'chrome.exe'" -ErrorAction SilentlyContinue |
+        Where-Object {
+            $Profile = Get-CommandLineProfile -CommandLine ([string]$_.CommandLine)
+            $Profile -and (Test-ManagedProfile -Profile $Profile)
+        })
+    if ($Managed.Count -eq 0) {
+        return
+    }
+
+    Write-Warning "Installation is closing $($Managed.Count) managed Agent Chrome process(es)."
+    $ManagedIds = @{}
+    foreach ($Process in $Managed) {
+        $ManagedIds[[int]$Process.ProcessId] = $true
+    }
+    $Roots = @($Managed | Where-Object { -not $ManagedIds.ContainsKey([int]$_.ParentProcessId) })
+    if ($Roots.Count -eq 0) {
+        $Roots = $Managed
+    }
+    foreach ($Process in $Roots) {
+        $Output = & "$env:SystemRoot\System32\taskkill.exe" /PID ([int]$Process.ProcessId) /T /F 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Could not stop Agent Chrome pid=$($Process.ProcessId): $($Output -join ' ')"
+        }
+    }
+}
+
 function Stop-ExistingBroker {
     if (-not (Test-Path -LiteralPath $BrokerPidFile)) {
         return
@@ -132,6 +237,9 @@ else {
     Stop-ExistingBroker
 }
 
+Stop-RequestWorkers
+Stop-ManagedChromeInstances
+
 Remove-Item -LiteralPath $ReadyFile -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $BrokerPidFile -Force -ErrorAction SilentlyContinue
 
@@ -148,7 +256,7 @@ $Settings = New-ScheduledTaskSettingsSet `
 
 Register-ScheduledTask `
     -TaskName $TaskName `
-    -Description "Launches a visible, dedicated Chrome window on demand for Pi agents running in WSL." `
+    -Description "Launches isolated visible Chrome instances on demand for Pi agents running in WSL." `
     -Action $Action `
     -Trigger $Trigger `
     -Principal $Principal `
@@ -183,7 +291,7 @@ while ((Get-Date) -lt $Deadline) {
 }
 
 if ($Ready) {
-    Write-Host "Browser bridge installed and running on CDP port $DebugPort." -ForegroundColor Green
+    Write-Host "Browser bridge installed; the default instance uses CDP port $DebugPort and named instances use dynamic ports." -ForegroundColor Green
 }
 else {
     $Task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue

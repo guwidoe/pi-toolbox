@@ -6,14 +6,22 @@ REQUEST_TIMEOUT="${PI_BROWSER_REQUEST_TIMEOUT:-35}"
 usage() {
   cat <<'EOF'
 Usage:
-  pi-browser open <https://url>
-  pi-browser status
-  pi-browser close
+  pi-browser open [--instance ID] [--json] <https://url>
+  pi-browser status [--instance ID] [--json]
+  pi-browser close [--instance ID] [--json]
   pi-browser bridge-path
+
+Instance selection (highest priority first):
+  --instance ID, PI_BROWSER_INSTANCE, PI_SESSION_ID, default
+
+Each named instance uses its own Chrome profile and dynamically allocated CDP
+port. Commands outside Pi retain the legacy "default" profile on port 9555.
 
 Environment:
   PI_BROWSER_BRIDGE_DIR       Override the Windows bridge directory
+  PI_BROWSER_INSTANCE         Select a persistent browser instance
   PI_BROWSER_REQUEST_TIMEOUT  Response timeout in seconds (default: 35)
+  PI_SESSION_ID               Automatically isolates concurrent Pi sessions
 EOF
 }
 
@@ -59,6 +67,15 @@ validate_settings() {
   fi
 }
 
+normalize_instance() {
+  local instance="${1,,}"
+  if [[ ! "$instance" =~ ^[a-z0-9][a-z0-9._-]{0,63}$ ]]; then
+    printf 'Browser instance id must match [a-z0-9][a-z0-9._-]{0,63}: %s\n' "$1" >&2
+    exit 2
+  fi
+  printf '%s\n' "$instance"
+}
+
 new_uuid() {
   if [[ -r /proc/sys/kernel/random/uuid ]]; then
     cat /proc/sys/kernel/random/uuid
@@ -71,7 +88,8 @@ new_uuid() {
 
 send_request() {
   local action="$1"
-  local url="${2:-}"
+  local instance="$2"
+  local url="${3:-}"
   local bridge request_dir response_dir id temp_request request response expires
 
   require_command jq
@@ -87,12 +105,12 @@ send_request() {
   request="$request_dir/${id}.json"
   response="$response_dir/${id}.json"
 
-  if [[ "$action" == "open" ]]; then
-    jq -n --arg id "$id" --arg action "$action" --arg url "$url" --argjson expires "$expires" \
-      '{id:$id,action:$action,url:$url,expiresAtEpoch:$expires}' > "$temp_request"
+  if [[ "$action" == "open" || "$action" == "open-instance" ]]; then
+    jq -n --arg id "$id" --arg action "$action" --arg instance "$instance" --arg url "$url" --argjson expires "$expires" \
+      '{id:$id,action:$action,url:$url,expiresAtEpoch:$expires} + (if $action | endswith("-instance") then {instance:$instance} else {} end)' > "$temp_request"
   else
-    jq -n --arg id "$id" --arg action "$action" --argjson expires "$expires" \
-      '{id:$id,action:$action,expiresAtEpoch:$expires}' > "$temp_request"
+    jq -n --arg id "$id" --arg action "$action" --arg instance "$instance" --argjson expires "$expires" \
+      '{id:$id,action:$action,expiresAtEpoch:$expires} + (if $action | endswith("-instance") then {instance:$instance} else {} end)' > "$temp_request"
   fi
   mv "$temp_request" "$request"
 
@@ -113,58 +131,128 @@ send_request() {
   done
 
   rm -f "$request"
-  printf 'Timed out waiting for the Windows browser broker.\n' >&2
-  printf 'Run the Windows installer and verify scheduled task "Pi Agent Browser Bridge" is running.\n' >&2
+  printf 'Timed out waiting for browser request %s. Its outcome is indeterminate; check instance status.\n' "$id" >&2
+  printf 'Verify the Windows scheduled task "Pi Agent Browser Bridge" and the bridge log.\n' >&2
   exit 1
 }
 
 command="${1:-}"
+if [[ -z "$command" || "$command" == "-h" || "$command" == "--help" || "$command" == "help" ]]; then
+  usage
+  exit 0
+fi
+shift
+
+if [[ "$command" == "bridge-path" ]]; then
+  if (($# != 0)); then
+    usage >&2
+    exit 2
+  fi
+  find_bridge_dir
+  exit 0
+fi
+
+if [[ "$command" != "open" && "$command" != "status" && "$command" != "close" ]]; then
+  printf 'Unknown command: %s\n' "$command" >&2
+  usage >&2
+  exit 2
+fi
+
+instance="${PI_BROWSER_INSTANCE:-${PI_SESSION_ID:-default}}"
+json_output=false
+positional=()
+while (($#)); do
+  case "$1" in
+    --instance)
+      if (($# < 2)); then
+        printf '%s\n' '--instance requires an id.' >&2
+        exit 2
+      fi
+      instance="$2"
+      shift 2
+      ;;
+    --instance=*)
+      instance="${1#*=}"
+      shift
+      ;;
+    --json)
+      json_output=true
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      positional+=("$@")
+      break
+      ;;
+    --*)
+      printf 'Unknown option: %s\n' "$1" >&2
+      exit 2
+      ;;
+    *)
+      positional+=("$1")
+      shift
+      ;;
+  esac
+done
+
+instance="$(normalize_instance "$instance")"
+if [[ "$command" == "open" ]]; then
+  if ((${#positional[@]} != 1)); then
+    usage >&2
+    exit 2
+  fi
+  url="${positional[0]}"
+elif ((${#positional[@]} != 0)); then
+  usage >&2
+  exit 2
+fi
+
+if [[ "$instance" == "default" ]]; then
+  action="$command"
+else
+  action="$command-instance"
+fi
+
+payload="$(send_request "$action" "$instance" "${url:-}")"
+if [[ "$command" == "open" ]]; then
+  debug_port="$(jq -r '.result.debugPort // empty' <<<"$payload")"
+  if [[ -z "$debug_port" ]] || ! curl -fsS --max-time 2 "http://127.0.0.1:${debug_port}/json/version" >/dev/null; then
+    printf 'Chrome launched, but CDP is not reachable from WSL for instance %s.\n' "$instance" >&2
+    printf 'Confirm mirrored networking is enabled and run wsl --shutdown once.\n' >&2
+    exit 1
+  fi
+fi
+if [[ "$json_output" == true ]]; then
+  printf '%s\n' "$payload"
+  exit 0
+fi
+
 case "$command" in
   open)
-    url="${2:-}"
-    if [[ -z "$url" ]]; then
-      usage >&2
-      exit 2
-    fi
-    payload="$(send_request open "$url")"
-    debug_port="$(jq -r '.result.debugPort' <<<"$payload")"
-    if curl -fsS --max-time 2 "http://127.0.0.1:${debug_port}/json/version" >/dev/null; then
-      printf 'Visible Agent Chrome opened. CDP: http://127.0.0.1:%s\n' "$debug_port"
-      printf 'Use BROWSER_DEBUG_PORT=%s with the web-browser scripts.\n' "$debug_port"
-    else
-      printf 'Chrome launched, but CDP is not reachable from WSL at 127.0.0.1:%s.\n' "$debug_port" >&2
-      printf 'Confirm mirrored networking is enabled and run wsl --shutdown once.\n' >&2
-      exit 1
-    fi
+    printf 'Visible Agent Chrome opened.\n'
+    printf 'Instance: %s\n' "$instance"
+    printf 'CDP: http://127.0.0.1:%s\n' "$debug_port"
+    printf 'Use BROWSER_DEBUG_PORT=%s with the web-browser scripts.\n' "$debug_port"
     ;;
   status)
-    payload="$(send_request status)"
     jq -r '
-      if .result.chromeRunning then
-        "Broker: running\nChrome: running\nCDP: " + .result.cdpUrl
-      else
-        "Broker: running\nChrome: stopped\nCDP: " + .result.cdpUrl
-      end
+      "Broker: running\n" +
+      "Instance: " + (.result.instance // "default") + "\n" +
+      "Chrome process: " + (if (.result.processRunning // .result.chromeRunning // false) then "running" else "stopped" end) + "\n" +
+      "CDP: " + (if (.result.cdpReachable // .result.chromeRunning // false) then .result.cdpUrl else "unreachable" end)
     ' <<<"$payload"
     ;;
   close)
-    payload="$(send_request close)"
-    if jq -e '.result.chromeRunning == false' >/dev/null <<<"$payload"; then
+    if jq -e '(.result.processRunning // .result.chromeRunning // false) == false' >/dev/null <<<"$payload"; then
       printf 'Visible Agent Chrome closed.\n'
+      printf 'Instance: %s\n' "$instance"
     else
-      printf 'Close requested, but Chrome may still be running.\n' >&2
+      printf 'Close requested, but Chrome may still be running for instance %s.\n' "$instance" >&2
       exit 1
     fi
-    ;;
-  bridge-path)
-    find_bridge_dir
-    ;;
-  -h|--help|help|'')
-    usage
-    ;;
-  *)
-    printf 'Unknown command: %s\n' "$command" >&2
-    usage >&2
-    exit 2
     ;;
 esac
