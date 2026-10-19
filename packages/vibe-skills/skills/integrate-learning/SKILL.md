@@ -13,7 +13,7 @@ Apply a learning from `learnings/` into the appropriate vibe-setup files.
 
 ### 1. Read the Learning
 
-Read the learning file from `~/ralph-repos/vibe-setup/learnings/`.
+Read the learning file from `~/repos/personal/vibe-setup/learnings/`.
 
 Understand:
 - What's the improvement?
@@ -42,7 +42,7 @@ Based on category:
 - Include YAML front matter with `summary` and `read_when`
 
 **pi-toolbox skill changes:**
-- Create new directory under `~/ralph-repos/pi-toolbox/packages/vibe-skills/skills/`
+- Create new directory under `~/repos/personal/pi-toolbox/packages/vibe-skills/skills/`
 - Add `SKILL.md` with standard front matter
 - Keep focused on one task
 
@@ -55,7 +55,7 @@ Based on category:
 After applying:
 
 ```bash
-mv ~/ralph-repos/vibe-setup/learnings/file.md ~/ralph-repos/vibe-setup/learnings/integrated/
+mv ~/repos/personal/vibe-setup/learnings/file.md ~/repos/personal/vibe-setup/learnings/integrated/
 ```
 
 ### 5. Summarize

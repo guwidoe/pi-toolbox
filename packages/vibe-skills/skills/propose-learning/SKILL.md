@@ -31,13 +31,13 @@ What did you learn? Be specific:
 |---------------|-------------|
 | Global convention change | `AGENTS.md` |
 | New workflow pattern | `docs/` (new or existing file) |
-| Reusable task prompt | `~/ralph-repos/pi-toolbox/packages/vibe-skills/skills/` (new skill) |
+| Reusable task prompt | `~/repos/personal/pi-toolbox/packages/vibe-skills/skills/` (new skill) |
 | Tool usage tip | `docs/tools.md` |
 | WSL-specific | `docs/wsl-tips.md` |
 
 ### 3. Create the Learning File
 
-Create a file in `~/ralph-repos/vibe-setup/learnings/`:
+Create a file in `~/repos/personal/vibe-setup/learnings/`:
 
 ```markdown
 # Learning: [Short description]

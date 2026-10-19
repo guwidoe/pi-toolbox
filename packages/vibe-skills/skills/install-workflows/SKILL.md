@@ -13,7 +13,7 @@ Integrate vibe-setup into a project by creating two files:
 
 ## Prerequisites
 
-- vibe-setup repo exists at `~/ralph-repos/vibe-setup`
+- vibe-setup repo exists at `~/repos/personal/vibe-setup`
 - Target project exists and you can explore it
 
 ## Installation Process
@@ -55,7 +55,7 @@ Create an `AGENTS.md` file in the project root. Start with vibe-setup reference,
 ```markdown
 # AGENTS.md
 
-@~/ralph-repos/vibe-setup/AGENTS.md
+@~/repos/personal/vibe-setup/AGENTS.md
 
 ## Project: [name]
 
@@ -150,7 +150,7 @@ After creating both files:
 ```markdown
 # AGENTS.md
 
-@~/ralph-repos/vibe-setup/AGENTS.md
+@~/repos/personal/vibe-setup/AGENTS.md
 
 ## Project: api-gateway
 

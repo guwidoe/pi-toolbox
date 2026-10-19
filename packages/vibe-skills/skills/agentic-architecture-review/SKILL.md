@@ -14,7 +14,7 @@ Use this when asked to review the current repo/workspace against the consolidate
 
 Read this file first, completely:
 
-- `/home/ralph/ralph-repos/vibe-setup/docs/reference/principles/AGENTIC_ENGINEERING_PRINCIPLES.md`
+- `/home/gwd/repos/personal/vibe-setup/docs/reference/principles/AGENTIC_ENGINEERING_PRINCIPLES.md`
 
 Treat it as the review rubric.
 
