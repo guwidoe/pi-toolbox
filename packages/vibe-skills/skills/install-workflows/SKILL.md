@@ -7,13 +7,18 @@ description: >
 
 # Install Workflows
 
-Integrate vibe-setup into a project by creating two files:
-- `CLAUDE.md` — references only (to global + local AGENTS.md)
-- `AGENTS.md` — project-specific instructions
+Integrate vibe-setup into a project. A project has exactly one instruction file,
+`AGENTS.md`, with project-specific content only. No `CLAUDE.md` and no include
+line: the shared conventions (`~/repos/personal/vibe-setup/AGENTS.md`) load
+globally for every agent on the machine (Claude Code, Codex, pi), wired by
+`~/repos/personal/vibe-setup/scripts/install-global-agents.sh`. Claude Code reads
+a project `AGENTS.md` natively as long as the repo has no `CLAUDE.md`.
 
 ## Prerequisites
 
 - vibe-setup repo exists at `~/repos/personal/vibe-setup`
+- The machine is wired: `~/.codex/AGENTS.md` is a link to vibe-setup's
+  `AGENTS.md`. If not, run `~/repos/personal/vibe-setup/scripts/install-global-agents.sh`.
 - Target project exists and you can explore it
 
 ## Installation Process
@@ -36,26 +41,14 @@ ls -la src/ 2>/dev/null
 ls -la .github/workflows/ 2>/dev/null
 ```
 
-### 2. Create CLAUDE.md (reference only)
+### 2. Create AGENTS.md (project info only)
 
-Create a `CLAUDE.md` file in the project root with **only** local AGENTS.md reference:
-
-```markdown
-# CLAUDE.md
-
-@AGENTS.md
-```
-
-That's it. No project info in CLAUDE.md.
-
-### 3. Create AGENTS.md (refs vibe-setup + project info)
-
-Create an `AGENTS.md` file in the project root. Start with vibe-setup reference, then project details:
+Create an `AGENTS.md` file in the project root. The area and its knowledge repo
+follow from the path (`~/repos/<area>/<repo>`); mention knowledge pages only when
+they matter specifically to this project.
 
 ```markdown
 # AGENTS.md
-
-@~/repos/personal/vibe-setup/AGENTS.md
 
 ## Project: [name]
 
@@ -102,7 +95,7 @@ Create an `AGENTS.md` file in the project root. Start with vibe-setup reference,
 - [Gotchas, quirks, things to watch out for]
 ```
 
-### 4. Adapt Based on Project Type
+### 3. Adapt Based on Project Type
 
 #### For TypeScript/Node projects
 - Note package manager (npm/pnpm/yarn/bun)
@@ -122,16 +115,17 @@ Create an `AGENTS.md` file in the project root. Start with vibe-setup reference,
 - Note shared dependencies
 - Explain how to work on specific packages
 
-### 5. What NOT to Include
+### 4. What NOT to Include
 
-- Don't duplicate content from vibe-setup AGENTS.md (it's @-included)
+- Don't duplicate content from vibe-setup AGENTS.md (it loads globally)
+- No `CLAUDE.md`, no `@~/repos/personal/vibe-setup/AGENTS.md` line
 - Don't add generic advice covered in vibe-setup docs
 - Don't include sensitive info (API keys, credentials)
 - Don't over-document — keep it scannable
 
-### 6. Verify
+### 5. Verify
 
-After creating both files:
+After creating the file:
 
 1. Read them back — does AGENTS.md give enough context to start working?
 2. Try the build/test commands — do they work?
@@ -139,18 +133,9 @@ After creating both files:
 
 ## Example
 
-**CLAUDE.md:**
-```markdown
-# CLAUDE.md
-
-@AGENTS.md
-```
-
 **AGENTS.md:**
 ```markdown
 # AGENTS.md
-
-@~/repos/personal/vibe-setup/AGENTS.md
 
 ## Project: api-gateway
 
@@ -187,18 +172,18 @@ pnpm dev        # runs on :3000
 
 ## Updating Existing Projects
 
-If the project already has a CLAUDE.md with content:
+If the project still has the old two-file pattern:
 
-1. Move project-specific content to AGENTS.md
-2. Replace CLAUDE.md with just the two @-references
-3. Remove any content that duplicates vibe-setup AGENTS.md
+1. Move any project-specific content from `CLAUDE.md` into `AGENTS.md`, then
+   delete `CLAUDE.md` (a stub that only says `@AGENTS.md` can just go).
+2. Remove the `@~/repos/personal/vibe-setup/AGENTS.md` line from `AGENTS.md`.
+3. Remove any content that duplicates vibe-setup AGENTS.md.
+4. Commit only those files.
 
 ## After Installation
 
 The project is now integrated. When working on it:
 
-- CLAUDE.md loads local AGENTS.md
-- Local AGENTS.md loads vibe-setup AGENTS.md (nested @-include)
-- vibe-setup AGENTS.md provides global workflows
-- Local AGENTS.md provides project context
+- Every agent loads vibe-setup AGENTS.md globally (shared conventions and
+  Guido's system) and the project's AGENTS.md (project context)
 - Learnings can be proposed back to vibe-setup with `propose-learning` skill
